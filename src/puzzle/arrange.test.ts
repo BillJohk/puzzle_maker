@@ -9,6 +9,7 @@ import {
   planPacking,
   randomSpot,
   stripsAround,
+  trimAway,
 } from './arrange';
 
 describe('isEdgePiece', () => {
@@ -166,5 +167,23 @@ describe('randomSpot', () => {
       const p = randomSpot(table, box, 0, [board], rand);
       expect(overlaps({ x: p.x, y: p.y, w: box.w, h: box.h }, board)).toBe(false);
     }
+  });
+});
+
+describe('trimAway', () => {
+  const strip = { x: 600, y: 0, w: 200, h: 600 };
+
+  it('leaves an area that is already clear alone', () => {
+    expect(trimAway(strip, { x: 0, y: 0, w: 100, h: 100 })).toBe(strip);
+  });
+
+  it('keeps the larger part beside a corner cover', () => {
+    // A thumbnail in the top-right corner: the strip below it is bigger than the one beside it.
+    expect(trimAway(strip, { x: 650, y: 10, w: 140, h: 100 })).toEqual({ x: 600, y: 110, w: 200, h: 490 });
+  });
+
+  it('returns an empty area when the cover takes everything', () => {
+    const area = trimAway(strip, { x: 500, y: -10, w: 400, h: 700 });
+    expect(area.w * area.h).toBe(0);
   });
 });

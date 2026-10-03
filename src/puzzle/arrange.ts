@@ -19,6 +19,22 @@ export function overlaps(a: Area, b: Area): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
+/** The largest part of `area` left clear of `cover`: the piece beside, above or below it. */
+export function trimAway(area: Area, cover: Area): Area {
+  if (!overlaps(area, cover)) return area;
+  const right = area.x + area.w;
+  const bottom = area.y + area.h;
+  const parts: Area[] = [
+    { x: area.x, y: area.y, w: cover.x - area.x, h: area.h },
+    { x: cover.x + cover.w, y: area.y, w: right - (cover.x + cover.w), h: area.h },
+    { x: area.x, y: area.y, w: area.w, h: cover.y - area.y },
+    { x: area.x, y: cover.y + cover.h, w: area.w, h: bottom - (cover.y + cover.h) },
+  ];
+  let best: Area = { x: area.x, y: area.y, w: 0, h: 0 };
+  for (const p of parts) if (p.w > 0 && p.h > 0 && p.w * p.h > best.w * best.h) best = p;
+  return best;
+}
+
 /** The free strips of the table around the board: left, right, top, bottom. */
 export function stripsAround(table: Size, board: Area): Area[] {
   const right = board.x + board.w;

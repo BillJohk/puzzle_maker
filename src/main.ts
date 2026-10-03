@@ -186,6 +186,17 @@ function drawThumbnail(image: ImageBitmap): void {
   drawFitted(thumbnail, image, THUMB_MAX_W, THUMB_MAX_H);
 }
 
+// New pieces are placed clear of the corner thumbnail. Measured from its CSS so this
+// works before it is first shown (it is hidden until the puzzle is cut).
+game.coveredArea = () => {
+  if (previewMode !== 'thumbnail' || !currentImage) return null;
+  const cs = getComputedStyle(thumbnail);
+  const border = parseFloat(cs.borderTopWidth) || 0;
+  const w = parseFloat(thumbnail.style.width) + 2 * border;
+  const h = parseFloat(thumbnail.style.height) + 2 * border;
+  return { x: canvas.clientWidth - parseFloat(cs.right) - w, y: parseFloat(cs.top), w, h };
+};
+
 // Click the thumbnail for a large view; any click closes it.
 thumbnail.addEventListener('click', () => {
   if (!currentImage) return;

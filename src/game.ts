@@ -6,6 +6,7 @@ import {
   packInArea,
   randomSpot,
   stripsAround,
+  trimAway,
   type Area,
 } from './puzzle/arrange';
 import { chooseGrid, type Grid } from './puzzle/grid';
@@ -158,6 +159,8 @@ export class PuzzleGame {
   onSnap: ((kind: 'join' | 'lock') => void) | null = null;
   /** Called when a piece or group is picked up. */
   onPickUp: (() => void) | null = null;
+  /** Part of the table hidden behind an overlay (the picture preview); new piece spots avoid it. */
+  coveredArea: (() => Area | null) | null = null;
   /** Called when the zoom level changes. */
   onViewChange: (() => void) | null = null;
 
@@ -360,7 +363,8 @@ export class PuzzleGame {
     // Turned pieces on non-square cells are taller than wide, so leave room either way.
     const span = this.rotationEnabled ? Math.max(cellW, cellH) : 0;
     const item = { w: (span || cellW) + 2 * this.pad, h: (span || cellH) + 2 * this.pad };
-    const area = chooseArea(stripsAround({ w: this.width, h: this.height }, this.board), edges.length, item);
+    const strips = stripsAround({ w: this.width, h: this.height }, this.board);
+    const area = chooseArea(this.covered().reduce((ss, c) => ss.map((s) => trimAway(s, c)), strips), edges.length, item);
     const rand = Math.random;
     for (const p of this.pieces) {
       if (p.locked || groupSize.get(p.group) !== 1 || isEdgePiece(p.row, p.col, rows, cols)) continue;
@@ -398,7 +402,7 @@ export class PuzzleGame {
     const order = [...groups.values()];
     for (const members of order) {
       const box = groupBounds(members, cellW, cellH);
-      const spot = randomSpot(this.tableSize(), box, this.pad, [this.board], rand);
+      const spot = randomSpot(this.tableSize(), box, this.pad, [this.board, ...this.covered()], rand);
       this.moveGroup(members, spot.x - box.x, spot.y - box.y);
     }
     // Restack the loose groups in a new random order, each kept together.
@@ -443,7 +447,15 @@ export class PuzzleGame {
   /** Random cell position, preferring spots that don't cover the board (or the other areas given). */
   private scatterPosition(rand: () => number, avoid: Area[] = []): { x: number; y: number } {
     const { cellW, cellH } = this.layout!;
-    return randomSpot(this.tableSize(), { w: cellW, h: cellH }, this.pad, [this.board, ...avoid], rand);
+    return randomSpot(this.tableSize(), { w: cellW, h: cellH }, this.pad, [this.board, ...this.covered(), ...avoid], rand);
+  }
+
+  /** The covered overlay area, grown by the piece padding so tabs stay clear of it too. */
+  private covered(): Area[] {
+    const c = this.coveredArea?.();
+    if (!c) return [];
+    const pad = this.pad;
+    return [{ x: c.x - pad, y: c.y - pad, w: c.w + 2 * pad, h: c.h + 2 * pad }];
   }
 
   private resize(): void {

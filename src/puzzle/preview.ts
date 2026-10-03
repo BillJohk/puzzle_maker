@@ -13,7 +13,7 @@ export function nextPreviewMode(mode: PreviewMode): PreviewMode {
 }
 
 export function parsePreviewMode(value: string | null): PreviewMode {
-  return PREVIEW_MODES.find((m) => m === value) ?? 'off';
+  return PREVIEW_MODES.find((m) => m === value) ?? 'thumbnail';
 }
 
 /** Largest size with the image's aspect ratio that fits in maxW × maxH, never upscaling. */

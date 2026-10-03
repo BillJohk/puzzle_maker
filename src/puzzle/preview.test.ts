@@ -10,11 +10,12 @@ describe('nextPreviewMode', () => {
 });
 
 describe('parsePreviewMode', () => {
-  it('accepts known modes and falls back to off', () => {
+  it('accepts known modes and falls back to the thumbnail', () => {
     expect(parsePreviewMode('ghost')).toBe('ghost');
     expect(parsePreviewMode('thumbnail')).toBe('thumbnail');
-    expect(parsePreviewMode(null)).toBe('off');
-    expect(parsePreviewMode('sepia')).toBe('off');
+    expect(parsePreviewMode(null)).toBe('thumbnail');
+    expect(parsePreviewMode('sepia')).toBe('thumbnail');
+    expect(parsePreviewMode('off')).toBe('off');
   });
 });
 
