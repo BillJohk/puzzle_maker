@@ -9,6 +9,7 @@ import { parseSaved } from './puzzle/save';
 import { MAX_ZOOM, MIN_ZOOM } from './puzzle/view';
 import { playChime, playClick, playTap } from './sound';
 import { clearSave, loadSave, saveImage, saveState } from './storage';
+import { isLightColor, TABLE_COLORS, tableColor } from './theme';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const fileInput = document.querySelector<HTMLInputElement>('#image-input')!;
@@ -30,6 +31,7 @@ const edgesButton = document.querySelector<HTMLButtonElement>('#edges')!;
 const zoomOutButton = document.querySelector<HTMLButtonElement>('#zoom-out')!;
 const zoomInButton = document.querySelector<HTMLButtonElement>('#zoom-in')!;
 const zoomResetButton = document.querySelector<HTMLButtonElement>('#zoom-reset')!;
+const tableColorSelect = document.querySelector<HTMLSelectElement>('#table-color')!;
 const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
 const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
 
@@ -37,6 +39,7 @@ const SOUND_KEY = 'puzzle-maker:sound';
 const ROTATE_KEY = 'puzzle-maker:rotate';
 const HELP_SEEN_KEY = 'puzzle-maker:help-seen';
 const PREVIEW_KEY = 'puzzle-maker:preview';
+const TABLE_COLOR_KEY = 'puzzle-maker:table-color';
 function readPref(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -111,6 +114,23 @@ function renderDifficulty(): void {
 renderDifficulty();
 
 const game = new PuzzleGame(canvas);
+
+for (const c of TABLE_COLORS) tableColorSelect.add(new Option(c.label, c.id));
+function applyTableColor(id: string | null): void {
+  const { id: chosen, color } = tableColor(id);
+  tableColorSelect.value = chosen;
+  const root = document.documentElement;
+  if (color) root.style.setProperty('--table-bg', color);
+  else root.style.removeProperty('--table-bg');
+  const light = color !== null && isLightColor(color);
+  root.classList.toggle('light-table', light);
+  game.onLightTable = light;
+}
+applyTableColor(readPref(TABLE_COLOR_KEY));
+tableColorSelect.addEventListener('change', () => {
+  writePref(TABLE_COLOR_KEY, tableColorSelect.value);
+  applyTableColor(tableColorSelect.value);
+});
 
 const THUMB_MAX_W = 220;
 const THUMB_MAX_H = 160;

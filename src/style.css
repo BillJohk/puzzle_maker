@@ -208,6 +208,11 @@ select:focus-visible {
   pointer-events: none;
 }
 
+/* Light table colors: dark text on the table. */
+:root.light-table {
+  --table-fg: rgba(0, 0, 0, 0.7);
+}
+
 #empty-state {
   position: absolute;
   inset: 0;

@@ -143,6 +143,7 @@ export class PuzzleGame {
   /** When the solved picture was revealed (performance.now()), for the shine animation. */
   private revealedAt: number | null = null;
   private ghost = false;
+  private lightTable = false;
 
   /** Called once when the puzzle is complete and the finished picture is shown. */
   onSolved: (() => void) | null = null;
@@ -208,6 +209,12 @@ export class PuzzleGame {
 
   private tableSize() {
     return { w: this.width, h: this.height };
+  }
+
+  /** On a light table the board is outlined in dark instead of light. */
+  set onLightTable(light: boolean) {
+    this.lightTable = light;
+    this.requestDraw();
   }
 
   /** Shows a faint copy of the picture on the board, under the pieces. */
@@ -503,10 +510,10 @@ export class PuzzleGame {
     this.applyView();
 
     const b = this.board;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    ctx.fillStyle = this.lightTable ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.18)';
     ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.strokeStyle = this.lightTable ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 1;
     ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
     ctx.setLineDash([]);

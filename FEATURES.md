@@ -37,4 +37,4 @@ Rough priority order — top items make the game feel complete.
 - [x] Drag-and-drop an image file onto the page (the table shows a drop highlight; the first image among the dropped files is used)
 - [x] Shuffle / re-scatter pieces without re-cutting: "Shuffle" moves every loose piece and group (kept together) to a random spot off the board and restacks them; locked pieces, time and moves are untouched
 - [x] Custom piece counts and difficulty presets: a Difficulty menu (Easy 24, Medium 48, Hard 150 rotated, Expert 300 rotated) sets count and rotation together and shows "Custom" otherwise; "Custom…" in the piece-count menu takes any count from 4 to 500 (zoom keeps the small pieces playable)
-- [ ] Background color choice for the table
+- [x] Background color choice for the table: a toolbar menu of table colors (green felt, which follows light/dark mode, plus navy, wine, charcoal, walnut, sand and paper), remembered; light colors switch the table text and board outline to dark so they stay readable
