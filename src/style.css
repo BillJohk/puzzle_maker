@@ -100,6 +100,33 @@ select:focus-visible {
   margin: 0;
 }
 
+.zoom {
+  display: inline-flex;
+}
+
+.zoom .button {
+  border-radius: 0;
+  min-width: 34px;
+  padding-inline: 8px;
+}
+
+.zoom .button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.zoom .button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.zoom .button + .button {
+  margin-left: -1px;
+}
+
+#zoom-reset {
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+}
+
 #status {
   font-size: 0.85rem;
   opacity: 0.75;
@@ -119,7 +146,8 @@ select:focus-visible {
   cursor: grab;
 }
 
-#board.dragging {
+#board.dragging,
+#board.panning {
   cursor: grabbing;
 }
 

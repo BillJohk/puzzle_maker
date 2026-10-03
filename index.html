@@ -19,6 +19,11 @@
       </label>
       <button id="recut" class="button" type="button" disabled>New cut</button>
       <button id="edges" class="button" type="button" disabled>Gather edges</button>
+      <span class="zoom" role="group" aria-label="Zoom">
+        <button id="zoom-out" class="button" type="button" aria-label="Zoom out" disabled>−</button>
+        <button id="zoom-reset" class="button" type="button" title="Reset zoom" disabled>100%</button>
+        <button id="zoom-in" class="button" type="button" aria-label="Zoom in" disabled>+</button>
+      </span>
       <button id="preview" class="button" type="button">Preview off</button>
       <button id="sound" class="button" type="button" aria-pressed="true">Sound on</button>
       <button id="help" class="button" type="button" aria-haspopup="dialog">How to play</button>
@@ -43,6 +48,7 @@
           <li><strong>Join:</strong> drop a piece close to a matching neighbor and they snap together, then move as a group.</li>
           <li><strong>Lock:</strong> drop a piece or group near its spot inside the dashed outline and it locks onto the board.</li>
           <li><strong>Rotate</strong> (when "Rotate pieces" is on): right-click or double-tap a piece, or press R or Space while dragging. Pieces only join when turned the same way, and only lock when upright.</li>
+          <li><strong>Zoom:</strong> scroll the mouse wheel over the table or use the − / + buttons; click the percentage to zoom back out. While zoomed in, drag an empty spot to look around.</li>
           <li><strong>Gather edges:</strong> moves the loose border pieces together beside the board.</li>
           <li><strong>Preview:</strong> cycles between no preview, a faint ghost of the picture on the board, and a small copy of the whole picture in the corner.</li>
           <li><strong>New cut:</strong> re-cuts the same image with fresh piece shapes.</li>

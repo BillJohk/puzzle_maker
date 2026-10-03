@@ -4,6 +4,7 @@ import { mulberry32 } from './puzzle/rng';
 import { fromSaved, toSaved, type SavedPuzzle } from './puzzle/save';
 import { createLayout, pieceSides, piecePadding, tracePiece, type PuzzleLayout } from './puzzle/shape';
 import { isSolved, rotateGroup, rotateVector, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
+import { clampView, IDENTITY_VIEW, MAX_ZOOM, panBy, toTable, zoomAt, type View } from './puzzle/view';
 
 /** Position (x, y) is the canvas position (CSS px) of the piece's cell top-left corner. */
 interface Piece extends SnapPiece {
@@ -18,6 +19,13 @@ interface Rect {
   y: number;
   w: number;
   h: number;
+}
+
+/** Dragging the empty table to pan a zoomed view; positions are in screen pixels. */
+interface Pan {
+  pointerId: number;
+  sx: number;
+  sy: number;
 }
 
 interface Drag {
@@ -62,6 +70,9 @@ const FLASH_MS = 450;
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_SLOP = 20;
 const GHOST_ALPHA = 0.25;
+/** Most pixels spent on piece sprites, so zoomed-in pieces stay sharp without exhausting memory. */
+const SPRITE_PIXEL_BUDGET = 16_000_000;
+const WHEEL_ZOOM_SPEED = 0.0015;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -79,6 +90,10 @@ export class PuzzleGame {
   private width = 0;
   private height = 0;
   private dpr = 1;
+  /** Sprite pixels per CSS pixel: the device ratio, raised so pieces stay sharp when zoomed. */
+  private res = 1;
+  private view: View = IDENTITY_VIEW;
+  private pan: Pan | null = null;
   private frame = 0;
   private seed = 0;
   private pieceCount = 0;
@@ -104,6 +119,8 @@ export class PuzzleGame {
   onSnap: ((kind: 'join' | 'lock') => void) | null = null;
   /** Called when a piece or group is picked up. */
   onPickUp: (() => void) | null = null;
+  /** Called when the zoom level changes. */
+  onViewChange: (() => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -114,6 +131,7 @@ export class PuzzleGame {
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerUp);
     canvas.addEventListener('contextmenu', this.onContextMenu);
+    canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKeyDown);
     this.resize();
   }
@@ -133,6 +151,30 @@ export class PuzzleGame {
 
   get solved(): boolean {
     return this.solvedState;
+  }
+
+  get zoom(): number {
+    return this.view.zoom;
+  }
+
+  /** Zooms about the middle of the screen. */
+  zoomBy(factor: number): void {
+    this.setView(zoomAt(this.view, factor, this.width / 2, this.height / 2, this.tableSize()));
+  }
+
+  resetView(): void {
+    this.setView(IDENTITY_VIEW);
+  }
+
+  private setView(view: View): void {
+    const changed = view.zoom !== this.view.zoom;
+    this.view = view;
+    this.requestDraw();
+    if (changed) this.onViewChange?.();
+  }
+
+  private tableSize() {
+    return { w: this.width, h: this.height };
   }
 
   /** Shows a faint copy of the picture on the board, under the pieces. */
@@ -182,11 +224,19 @@ export class PuzzleGame {
     const layout = createLayout(rows, cols, boardW / cols, boardH / rows, rand);
     this.layout = layout;
     this.pad = piecePadding(layout);
+    this.pan = null;
+    this.setView(IDENTITY_VIEW);
+
+    // Render sprites sharper than the screen needs so zooming in stays crisp, within a
+    // memory budget and never beyond the detail the source image has.
+    const spritePixels = rows * cols * (layout.cellW + 2 * this.pad) * (layout.cellH + 2 * this.pad) * this.dpr ** 2;
+    const detail = Math.min(Math.sqrt(SPRITE_PIXEL_BUDGET / spritePixels), image.width / (boardW * this.dpr), MAX_ZOOM);
+    this.res = this.dpr * Math.max(1, detail);
 
     // Scale the source image once so large photos aren't resampled for every piece.
     const scaled = document.createElement('canvas');
-    scaled.width = Math.ceil(boardW * this.dpr);
-    scaled.height = Math.ceil(boardH * this.dpr);
+    scaled.width = Math.ceil(boardW * this.res);
+    scaled.height = Math.ceil(boardH * this.res);
     scaled.getContext('2d')!.drawImage(image, 0, 0, scaled.width, scaled.height);
     this.scaled = scaled;
 
@@ -293,10 +343,10 @@ export class PuzzleGame {
     const { cellW, cellH } = this.layout!;
     const pad = this.pad;
     const sprite = document.createElement('canvas');
-    sprite.width = Math.ceil((cellW + 2 * pad) * this.dpr);
-    sprite.height = Math.ceil((cellH + 2 * pad) * this.dpr);
+    sprite.width = Math.ceil((cellW + 2 * pad) * this.res);
+    sprite.height = Math.ceil((cellH + 2 * pad) * this.res);
     const ctx = sprite.getContext('2d')!;
-    ctx.scale(this.dpr, this.dpr);
+    ctx.scale(this.res, this.res);
     ctx.translate(pad - c * cellW, pad - r * cellH);
     ctx.save();
     ctx.clip(path);
@@ -336,6 +386,7 @@ export class PuzzleGame {
     this.canvas.height = Math.round(rect.height * this.dpr);
     // Keep every group grabbable if the window shrank.
     this.keepGroupsInView();
+    this.view = clampView(this.view, this.tableSize());
     this.draw();
   }
 
@@ -393,6 +444,7 @@ export class PuzzleGame {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
     if (!this.layout) return;
+    this.applyView();
 
     const b = this.board;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
@@ -444,6 +496,13 @@ export class PuzzleGame {
     }
   }
 
+  /** Sets the canvas transform so drawing in table coordinates lands on screen through the view. */
+  private applyView(): void {
+    const { zoom, x, y } = this.view;
+    const k = this.dpr * zoom;
+    this.ctx.setTransform(k, 0, 0, k, -x * k, -y * k);
+  }
+
   /** Fading glow around the outlines of pieces that just snapped. */
   private drawFlash(t: number): void {
     if (t >= FLASH_MS) {
@@ -459,7 +518,7 @@ export class PuzzleGame {
     ctx.shadowBlur = 10;
     for (const p of this.flash!.members) {
       // Board coordinates -> the piece's on-screen position and rotation.
-      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.applyView();
       ctx.translate(p.x + cellW / 2, p.y + cellH / 2);
       ctx.rotate((p.rotation * Math.PI) / 2);
       ctx.translate(-(p.col + 0.5) * cellW, -(p.row + 0.5) * cellH);
@@ -539,9 +598,16 @@ export class PuzzleGame {
     this.onSolved?.();
   }
 
-  private pointerPos(e: PointerEvent): { x: number; y: number } {
+  private screenPos(e: MouseEvent): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  /** The event's position on the table (through the zoomed view). */
+  private pointerPos(e: MouseEvent): { x: number; y: number } {
+    const s = this.screenPos(e);
+    const [x, y] = toTable(this.view, s.x, s.y);
+    return { x, y };
   }
 
   /** Topmost piece whose actual outline (not just its box) contains the point. */
@@ -603,8 +669,17 @@ export class PuzzleGame {
 
   private onContextMenu = (e: MouseEvent): void => {
     e.preventDefault();
-    const rect = this.canvas.getBoundingClientRect();
-    this.rotatePieceAt(e.clientX - rect.left, e.clientY - rect.top);
+    const { x, y } = this.pointerPos(e);
+    this.rotatePieceAt(x, y);
+  };
+
+  private onWheel = (e: WheelEvent): void => {
+    if (!this.layout) return;
+    e.preventDefault();
+    // Line-based deltas (some mice) are much coarser than pixel deltas.
+    const delta = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 16 : e.deltaY;
+    const { x, y } = this.screenPos(e);
+    this.setView(zoomAt(this.view, Math.exp(-delta * WHEEL_ZOOM_SPEED), x, y, this.tableSize()));
   };
 
   /** R or Space while dragging turns the held group about the pointer. */
@@ -620,11 +695,20 @@ export class PuzzleGame {
   };
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (!this.layout || this.drag || this.solvedState) return;
+    if (!this.layout || this.drag || this.pan) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const { x, y } = this.pointerPos(e);
-    const piece = this.pieceAt(x, y);
-    if (!piece) return;
+    const piece = this.solvedState ? null : this.pieceAt(x, y);
+    if (!piece) {
+      // Dragging the empty table moves a zoomed-in view around.
+      if (this.view.zoom > 1) {
+        const s = this.screenPos(e);
+        this.pan = { pointerId: e.pointerId, sx: s.x, sy: s.y };
+        this.canvas.setPointerCapture(e.pointerId);
+        this.canvas.classList.add('panning');
+      }
+      return;
+    }
     // Lift the whole group to the top, keeping its internal stacking order.
     const members = this.pieces.filter((p) => p.group === piece.group);
     this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
@@ -646,6 +730,13 @@ export class PuzzleGame {
   };
 
   private onPointerMove = (e: PointerEvent): void => {
+    if (this.pan?.pointerId === e.pointerId) {
+      const s = this.screenPos(e);
+      this.setView(panBy(this.view, s.x - this.pan.sx, s.y - this.pan.sy, this.tableSize()));
+      this.pan.sx = s.x;
+      this.pan.sy = s.y;
+      return;
+    }
     if (this.drag?.pointerId !== e.pointerId) return;
     const { x, y } = this.pointerPos(e);
     this.drag.px = x;
@@ -659,6 +750,11 @@ export class PuzzleGame {
   };
 
   private onPointerUp = (e: PointerEvent): void => {
+    if (this.pan?.pointerId === e.pointerId) {
+      this.pan = null;
+      this.canvas.classList.remove('panning');
+      return;
+    }
     if (this.drag?.pointerId !== e.pointerId) return;
     const { piece, members, moved, px, py } = this.drag;
     this.drag = null;

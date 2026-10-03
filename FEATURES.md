@@ -32,7 +32,7 @@ Rough priority order — top items make the game feel complete.
 - [x] Save progress: the image and puzzle state (piece positions, turns, groups, time, moves) are saved in IndexedDB as you play and restored on the next visit, lined up to the new window size; the save is cleared when the puzzle is solved
 - [x] Preview: a toolbar button cycles between no preview, a faint ghost of the picture on the board under the pieces, and a thumbnail of the full picture in the corner; the choice is remembered
 - [x] Edge sorting: "Gather edges" lays the loose border pieces out in a tidy grid in the roomiest strip beside the board (overlapping like shingles when crowded) and moves loose inner pieces out of that strip
-- [ ] Zoom and pan for large piece counts
+- [x] Zoom and pan for large piece counts: mouse-wheel zoom about the cursor (100–400%) and − / % / + toolbar buttons; drag an empty spot to pan while zoomed in. Piece sprites are rendered at extra resolution (within a memory budget) so they stay sharp when zoomed
 - [ ] Better touch support (pinch zoom, larger hit areas)
 - [ ] Drag-and-drop an image file onto the page
 - [ ] Shuffle / re-scatter pieces without re-cutting

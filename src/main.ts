@@ -4,6 +4,7 @@ import { PuzzleGame } from './game';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
 import { fitSize, nextPreviewMode, parsePreviewMode, PREVIEW_LABELS, type PreviewMode } from './puzzle/preview';
 import { parseSaved } from './puzzle/save';
+import { MAX_ZOOM, MIN_ZOOM } from './puzzle/view';
 import { playChime, playClick, playTap } from './sound';
 import { clearSave, loadSave, saveImage, saveState } from './storage';
 
@@ -21,6 +22,9 @@ const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
 const edgesButton = document.querySelector<HTMLButtonElement>('#edges')!;
+const zoomOutButton = document.querySelector<HTMLButtonElement>('#zoom-out')!;
+const zoomInButton = document.querySelector<HTMLButtonElement>('#zoom-in')!;
+const zoomResetButton = document.querySelector<HTMLButtonElement>('#zoom-reset')!;
 const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
 const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
 
@@ -168,6 +172,7 @@ function useImage(bitmap: ImageBitmap): void {
   emptyState.hidden = true;
   recutButton.disabled = false;
   edgesButton.disabled = false;
+  renderZoom();
 }
 
 fileInput.addEventListener('change', async () => {
@@ -210,5 +215,17 @@ rotateToggle.addEventListener('change', () => {
   cut();
 });
 recutButton.addEventListener('click', cut);
+
+const ZOOM_STEP = 1.5;
+function renderZoom(): void {
+  zoomResetButton.textContent = `${Math.round(game.zoom * 100)}%`;
+  zoomOutButton.disabled = !game.hasImage || game.zoom <= MIN_ZOOM;
+  zoomInButton.disabled = !game.hasImage || game.zoom >= MAX_ZOOM;
+  zoomResetButton.disabled = !game.hasImage;
+}
+game.onViewChange = renderZoom;
+zoomInButton.addEventListener('click', () => game.zoomBy(ZOOM_STEP));
+zoomOutButton.addEventListener('click', () => game.zoomBy(1 / ZOOM_STEP));
+zoomResetButton.addEventListener('click', () => game.resetView());
 edgesButton.addEventListener('click', () => game.gatherEdges());
 playAgainButton.addEventListener('click', cut);
