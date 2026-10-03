@@ -123,3 +123,43 @@ select:focus-visible {
 #empty-state[hidden] {
   display: none;
 }
+
+#solved-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  max-width: calc(100% - 32px);
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  animation: banner-in 400ms ease-out;
+}
+
+#solved-banner strong {
+  font-size: 1.1rem;
+}
+
+#solved-banner[hidden] {
+  display: none;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #solved-banner {
+    animation: none;
+  }
+}

@@ -1,4 +1,5 @@
 import './style.css';
+import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
 
@@ -8,6 +9,9 @@ const countSelect = document.querySelector<HTMLSelectElement>('#piece-count')!;
 const recutButton = document.querySelector<HTMLButtonElement>('#recut')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const emptyState = document.querySelector<HTMLElement>('#empty-state')!;
+const solvedBanner = document.querySelector<HTMLElement>('#solved-banner')!;
+const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
+const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
 
 const DEFAULT_COUNT = 48;
 for (const n of PIECE_COUNT_OPTIONS) {
@@ -15,14 +19,30 @@ for (const n of PIECE_COUNT_OPTIONS) {
 }
 
 const game = new PuzzleGame(canvas);
+let sizeLabel = '';
+
+const movesLabel = (n: number) => `${n} ${n === 1 ? 'move' : 'moves'}`;
+
+function updateStatus(): void {
+  if (!game.hasImage) return;
+  const solved = game.solved ? 'Solved! ' : '';
+  status.textContent = `${solved}${sizeLabel} · ${formatDuration(game.elapsedMs)} · ${movesLabel(game.moves)}`;
+}
+
+game.onProgress = updateStatus;
 game.onSolved = () => {
-  status.textContent = `Solved! ${status.textContent}`;
+  updateStatus();
+  solvedDetail.textContent = `${sizeLabel} in ${formatDuration(game.elapsedMs)}, ${movesLabel(game.moves)}`;
+  solvedBanner.hidden = false;
 };
+setInterval(updateStatus, 1000);
 
 function cut(): void {
   if (!game.hasImage) return;
   const { rows, cols } = game.generate(Number(countSelect.value));
-  status.textContent = `${cols} × ${rows} = ${rows * cols} pieces`;
+  sizeLabel = `${cols} × ${rows} = ${rows * cols} pieces`;
+  solvedBanner.hidden = true;
+  updateStatus();
 }
 
 fileInput.addEventListener('change', async () => {
@@ -45,3 +65,4 @@ fileInput.addEventListener('change', async () => {
 
 countSelect.addEventListener('change', cut);
 recutButton.addEventListener('click', cut);
+playAgainButton.addEventListener('click', cut);

@@ -25,6 +25,16 @@ interface Drag {
   pointerId: number;
   dx: number;
   dy: number;
+  moved: boolean;
+}
+
+/** Glide of the finished picture onto the board when it was solved elsewhere on the table. */
+interface FinishGlide {
+  members: Piece[];
+  from: [number, number][];
+  dx: number;
+  dy: number;
+  start: number;
 }
 
 /** Fraction of the play area the assembled puzzle may occupy; the rest holds scattered pieces. */
@@ -32,11 +42,18 @@ const BOARD_MAX_W = 0.6;
 const BOARD_MAX_H = 0.7;
 /** Snap distance as a fraction of the cell's short side. */
 const SNAP_TOLERANCE = 0.25;
+const GLIDE_MS = 700;
+const REVEAL_MS = 400;
+const SHINE_MS = 1400;
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 export class PuzzleGame {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly hitCtx: CanvasRenderingContext2D;
   private image: ImageBitmap | null = null;
+  /** The image at board size, used for the clean solved picture. */
+  private scaled: HTMLCanvasElement | null = null;
   private pieces: Piece[] = [];
   private layout: PuzzleLayout | null = null;
   private board: Rect = { x: 0, y: 0, w: 0, h: 0 };
@@ -47,8 +64,18 @@ export class PuzzleGame {
   private dpr = 1;
   private frame = 0;
 
-  /** Called once when the last piece snaps into place. */
+  private timerStart: number | null = null;
+  private timerAccum = 0;
+  private moveCount = 0;
+  private solvedState = false;
+  private glide: FinishGlide | null = null;
+  /** When the solved picture was revealed (performance.now()), for the shine animation. */
+  private revealedAt: number | null = null;
+
+  /** Called once when the puzzle is complete and the finished picture is shown. */
   onSolved: (() => void) | null = null;
+  /** Called after each move, so the UI can refresh its counters. */
+  onProgress: (() => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -65,6 +92,19 @@ export class PuzzleGame {
     return this.image !== null;
   }
 
+  /** Play time so far; the clock starts on the first grab and stops when solved. */
+  get elapsedMs(): number {
+    return this.timerAccum + (this.timerStart === null ? 0 : performance.now() - this.timerStart);
+  }
+
+  get moves(): number {
+    return this.moveCount;
+  }
+
+  get solved(): boolean {
+    return this.solvedState;
+  }
+
   setImage(image: ImageBitmap): void {
     this.image?.close();
     this.image = image;
@@ -75,6 +115,12 @@ export class PuzzleGame {
     const image = this.image;
     if (!image) throw new Error('No image loaded');
     this.drag = null;
+    this.glide = null;
+    this.revealedAt = null;
+    this.solvedState = false;
+    this.timerStart = null;
+    this.timerAccum = 0;
+    this.moveCount = 0;
 
     const scale = Math.min(
       (this.width * BOARD_MAX_W) / image.width,
@@ -100,6 +146,7 @@ export class PuzzleGame {
     scaled.width = Math.ceil(boardW * this.dpr);
     scaled.height = Math.ceil(boardH * this.dpr);
     scaled.getContext('2d')!.drawImage(image, 0, 0, scaled.width, scaled.height);
+    this.scaled = scaled;
 
     const pieces: Piece[] = [];
     for (let r = 0; r < rows; r++) {
@@ -217,6 +264,8 @@ export class PuzzleGame {
   }
 
   private draw(): void {
+    const now = performance.now();
+    this.stepGlide(now);
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
@@ -249,6 +298,82 @@ export class PuzzleGame {
       ctx.restore();
       dragged.forEach(drawPiece);
     }
+
+    if (this.revealedAt !== null) this.drawReveal(now - this.revealedAt);
+    if (this.glide || (this.revealedAt !== null && now - this.revealedAt < SHINE_MS)) {
+      this.requestDraw();
+    }
+  }
+
+  /** Fades in the outline-free picture over the board, then sweeps a shine across it. */
+  private drawReveal(t: number): void {
+    const ctx = this.ctx;
+    const b = this.board;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, t / REVEAL_MS);
+    ctx.drawImage(this.scaled!, b.x, b.y, b.w, b.h);
+    ctx.restore();
+
+    if (t >= SHINE_MS) return;
+    const band = b.w * 0.25;
+    const cx = b.x - band + (b.w + 2 * band) * easeInOut(t / SHINE_MS);
+    const shine = ctx.createLinearGradient(cx - band / 2, 0, cx + band / 2, 0);
+    shine.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    shine.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
+    shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(b.x, b.y, b.w, b.h);
+    ctx.clip();
+    ctx.fillStyle = shine;
+    ctx.fillRect(cx - band / 2, b.y, band, b.h);
+    ctx.restore();
+  }
+
+  /** Stops the clock and shows the finished picture, gliding it onto the board first if needed. */
+  private finish(): void {
+    if (this.timerStart !== null) {
+      this.timerAccum += performance.now() - this.timerStart;
+      this.timerStart = null;
+    }
+    this.solvedState = true;
+    const members = this.pieces.filter((p) => !p.locked);
+    if (members.length === 0) {
+      this.reveal();
+      return;
+    }
+    // Everything is one group, so a single offset moves it into place.
+    const { cellW, cellH } = this.layout!;
+    const m0 = members[0];
+    this.glide = {
+      members,
+      from: members.map((m) => [m.x, m.y]),
+      dx: this.board.x + m0.col * cellW - m0.x,
+      dy: this.board.y + m0.row * cellH - m0.y,
+      start: performance.now(),
+    };
+  }
+
+  private stepGlide(now: number): void {
+    const g = this.glide;
+    if (!g) return;
+    const t = Math.min(1, (now - g.start) / GLIDE_MS);
+    const k = easeInOut(t);
+    g.members.forEach((m, i) => {
+      m.x = g.from[i][0] + g.dx * k;
+      m.y = g.from[i][1] + g.dy * k;
+    });
+    if (t === 1) {
+      this.glide = null;
+      for (const m of g.members) m.locked = true;
+      this.reveal();
+    }
+  }
+
+  private reveal(): void {
+    this.revealedAt = performance.now();
+    this.requestDraw();
+    this.onSolved?.();
   }
 
   private pointerPos(e: PointerEvent): { x: number; y: number } {
@@ -272,14 +397,16 @@ export class PuzzleGame {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (!this.layout || this.drag) return;
+    if (!this.layout || this.drag || this.solvedState) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const { x, y } = this.pointerPos(e);
     const piece = this.pieceAt(x, y);
     if (!piece) return;
     // Lift the whole group to the top, keeping its internal stacking order.
     const members = this.pieces.filter((p) => p.group === piece.group);
     this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
-    this.drag = { piece, members, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y };
+    this.drag = { piece, members, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y, moved: false };
+    this.timerStart ??= performance.now();
     this.canvas.setPointerCapture(e.pointerId);
     this.canvas.classList.add('dragging');
     this.requestDraw();
@@ -290,22 +417,25 @@ export class PuzzleGame {
     const { x, y } = this.pointerPos(e);
     const p = this.drag.piece;
     const [nx, ny] = this.clampToView(x - this.drag.dx, y - this.drag.dy);
+    if (nx === p.x && ny === p.y) return;
+    this.drag.moved = true;
     this.moveGroup(this.drag.members, nx - p.x, ny - p.y);
     this.requestDraw();
   };
 
   private onPointerUp = (e: PointerEvent): void => {
     if (this.drag?.pointerId !== e.pointerId) return;
-    const { piece } = this.drag;
+    const { piece, moved } = this.drag;
     this.drag = null;
     this.canvas.classList.remove('dragging');
-    const wasSolved = isSolved(this.pieces);
+    if (moved) this.moveCount++;
     const { snapped } = settle(this.pieces, piece.group, this.snapGeometry());
     if (snapped) {
       // Locked pieces form the bottom layer so loose pieces always stay on top.
       this.pieces = [...this.pieces.filter((p) => p.locked), ...this.pieces.filter((p) => !p.locked)];
-      if (!wasSolved && isSolved(this.pieces)) this.onSolved?.();
+      if (isSolved(this.pieces)) this.finish();
     }
     this.requestDraw();
+    this.onProgress?.();
   };
 }
