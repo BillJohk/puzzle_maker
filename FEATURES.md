@@ -28,13 +28,13 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 
 Rough priority order — top items make the game feel complete.
 
-- [ ] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
-- [ ] Save progress: persist the current puzzle locally and resume later
-- [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture
-- [ ] Edge sorting: button to gather edge pieces together
-- [ ] Zoom and pan for large piece counts
-- [ ] Better touch support (pinch zoom, larger hit areas)
-- [ ] Drag-and-drop an image file onto the page
-- [ ] Shuffle / re-scatter pieces without re-cutting
-- [ ] Custom piece counts and difficulty presets
-- [ ] Background color choice for the table
+- [x] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
+- [x] Save progress: the image and puzzle state (piece positions, turns, groups, time, moves) are saved in IndexedDB as you play and restored on the next visit, lined up to the new window size; the save is cleared when the puzzle is solved
+- [x] Preview: a toolbar button cycles between no preview, a faint ghost of the picture on the board under the pieces, and a thumbnail of the full picture in the corner; the choice is remembered
+- [x] Edge sorting: "Gather edges" lays the loose border pieces out in a tidy grid in the roomiest strip beside the board (overlapping like shingles when crowded) and moves loose inner pieces out of that strip
+- [x] Zoom and pan for large piece counts: mouse-wheel zoom about the cursor (100–400%) and − / % / + toolbar buttons; drag an empty spot to pan while zoomed in. Piece sprites are rendered at extra resolution (within a memory budget) so they stay sharp when zoomed
+- [x] Better touch support: two-finger pinch zooms and pans the table; fingers and pens pick up a piece even on a near miss (within ~22 px of its outline); larger toolbar controls on touch screens
+- [x] Drag-and-drop an image file onto the page (the table shows a drop highlight; the first image among the dropped files is used)
+- [x] Shuffle / re-scatter pieces without re-cutting: "Shuffle" moves every loose piece and group (kept together) to a random spot off the board and restacks them; locked pieces, time and moves are untouched
+- [x] Custom piece counts and difficulty presets: a Difficulty menu (Easy 24, Medium 48, Hard 150 rotated, Expert 300 rotated) sets count and rotation together and shows "Custom" otherwise; "Custom…" in the piece-count menu takes any count from 4 to 500 (zoom keeps the small pieces playable)
+- [x] Background color choice for the table: a toolbar menu of table colors (green felt, which follows light/dark mode, plus navy, wine, charcoal, walnut, sand and paper), remembered; light colors switch the table text and board outline to dark so they stay readable
