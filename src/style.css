@@ -178,6 +178,21 @@ select:focus-visible {
   display: none;
 }
 
+/* Highlight while an image file is dragged over the page. */
+.drop-target .table::after {
+  content: 'Drop the image to make a puzzle';
+  position: absolute;
+  inset: 12px;
+  display: grid;
+  place-items: center;
+  border: 3px dashed rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
 #empty-state {
   position: absolute;
   inset: 0;

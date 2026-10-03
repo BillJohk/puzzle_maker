@@ -1,4 +1,5 @@
 import './style.css';
+import { firstImageFile } from './files';
 import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
@@ -175,19 +176,51 @@ function useImage(bitmap: ImageBitmap): void {
   renderZoom();
 }
 
-fileInput.addEventListener('change', async () => {
-  const file = fileInput.files?.[0];
-  if (!file) return;
+async function openFile(file: File): Promise<void> {
   try {
     useImage(await decode(file));
-    await saveImage(file);
-    cut();
   } catch {
     status.textContent = `Couldn't read "${file.name}" as an image.`;
-  } finally {
-    // Allow picking the same file again to start over.
-    fileInput.value = '';
+    return;
   }
+  await saveImage(file);
+  cut();
+}
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  // Allow picking the same file again to start over.
+  fileInput.value = '';
+  if (file) void openFile(file);
+});
+
+// Dropping an image anywhere on the page opens it. Without preventDefault on
+// both events the browser would navigate to the file instead.
+let dragDepth = 0;
+const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes('Files') ?? false;
+window.addEventListener('dragenter', (e) => {
+  if (!hasFiles(e)) return;
+  dragDepth++;
+  document.body.classList.add('drop-target');
+});
+window.addEventListener('dragleave', (e) => {
+  if (!hasFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.body.classList.remove('drop-target');
+});
+window.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  e.dataTransfer!.dropEffect = 'copy';
+});
+window.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove('drop-target');
+  const file = firstImageFile(e.dataTransfer!.files);
+  if (file) void openFile(file);
+  else status.textContent = 'Drop an image file to make a puzzle from it.';
 });
 
 /** Picks up where the player left off, if a puzzle was saved in this browser. */
