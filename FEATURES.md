@@ -35,6 +35,6 @@ Rough priority order — top items make the game feel complete.
 - [x] Zoom and pan for large piece counts: mouse-wheel zoom about the cursor (100–400%) and − / % / + toolbar buttons; drag an empty spot to pan while zoomed in. Piece sprites are rendered at extra resolution (within a memory budget) so they stay sharp when zoomed
 - [x] Better touch support: two-finger pinch zooms and pans the table; fingers and pens pick up a piece even on a near miss (within ~22 px of its outline); larger toolbar controls on touch screens
 - [x] Drag-and-drop an image file onto the page (the table shows a drop highlight; the first image among the dropped files is used)
-- [ ] Shuffle / re-scatter pieces without re-cutting
+- [x] Shuffle / re-scatter pieces without re-cutting: "Shuffle" moves every loose piece and group (kept together) to a random spot off the board and restacks them; locked pieces, time and moves are untouched
 - [ ] Custom piece counts and difficulty presets
 - [ ] Background color choice for the table

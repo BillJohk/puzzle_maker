@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { chooseArea, isEdgePiece, overlaps, packInArea, planPacking, stripsAround } from './arrange';
+import { mulberry32 } from './rng';
+import {
+  chooseArea,
+  groupBounds,
+  isEdgePiece,
+  overlaps,
+  packInArea,
+  planPacking,
+  randomSpot,
+  stripsAround,
+} from './arrange';
 
 describe('isEdgePiece', () => {
   it('marks the outer ring of the grid', () => {
@@ -104,5 +114,57 @@ describe('packInArea', () => {
 
   it('returns nothing for no items', () => {
     expect(packInArea(0, { x: 0, y: 0, w: 10, h: 10 }, item)).toEqual([]);
+  });
+});
+
+describe('groupBounds', () => {
+  it('spans the cell boxes of upright pieces', () => {
+    const members = [
+      { x: 10, y: 20, rotation: 0 },
+      { x: 50, y: 20, rotation: 0 },
+      { x: 10, y: 50, rotation: 0 },
+    ];
+    expect(groupBounds(members, 40, 30)).toEqual({ x: 10, y: 20, w: 80, h: 60 });
+  });
+
+  it('swaps width and height of quarter-turned boxes about their centers', () => {
+    // A 40 × 20 box at (0, 0) has center (20, 10); turned it is 20 × 40.
+    expect(groupBounds([{ x: 0, y: 0, rotation: 1 }], 40, 20)).toEqual({ x: 10, y: -10, w: 20, h: 40 });
+    expect(groupBounds([{ x: 0, y: 0, rotation: 2 }], 40, 20)).toEqual({ x: 0, y: 0, w: 40, h: 20 });
+  });
+});
+
+describe('randomSpot', () => {
+  const table = { w: 300, h: 200 };
+  const size = { w: 40, h: 30 };
+
+  it('stays inside the table margins', () => {
+    const rand = mulberry32(1);
+    for (let i = 0; i < 50; i++) {
+      const p = randomSpot(table, size, 5, [], rand);
+      expect(p.x).toBeGreaterThanOrEqual(5);
+      expect(p.y).toBeGreaterThanOrEqual(5);
+      expect(p.x + size.w).toBeLessThanOrEqual(table.w - 5);
+      expect(p.y + size.h).toBeLessThanOrEqual(table.h - 5);
+    }
+  });
+
+  it('avoids the given areas when it can', () => {
+    const rand = mulberry32(7);
+    const board = { x: 100, y: 0, w: 100, h: 200 };
+    for (let i = 0; i < 50; i++) {
+      expect(overlaps({ ...randomSpot(table, size, 0, [board], rand), ...size }, board)).toBe(false);
+    }
+  });
+
+  it('accepts a positioned box as the size', () => {
+    // A group's bounding box carries its old x/y, which must not be mistaken for the new spot.
+    const rand = mulberry32(3);
+    const board = { x: 100, y: 0, w: 100, h: 200 };
+    const box = { x: 120, y: 50, ...size };
+    for (let i = 0; i < 50; i++) {
+      const p = randomSpot(table, box, 0, [board], rand);
+      expect(overlaps({ x: p.x, y: p.y, w: box.w, h: box.h }, board)).toBe(false);
+    }
   });
 });

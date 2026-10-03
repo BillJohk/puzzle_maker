@@ -91,3 +91,53 @@ export function packInArea(n: number, area: Area, item: Size): { x: number; y: n
     y: y0 + Math.floor(i / cols) * stepY,
   }));
 }
+
+/**
+ * Bounding box of a group of cell boxes, each given by its unrotated top-left
+ * corner and quarter turns. A turned box spins about its center, so odd turns
+ * swap its width and height.
+ */
+export function groupBounds(
+  members: readonly { x: number; y: number; rotation: number }[],
+  cellW: number,
+  cellH: number,
+): Area {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const m of members) {
+    const [w, h] = m.rotation % 2 === 0 ? [cellW, cellH] : [cellH, cellW];
+    const cx = m.x + cellW / 2;
+    const cy = m.y + cellH / 2;
+    x0 = Math.min(x0, cx - w / 2);
+    y0 = Math.min(y0, cy - h / 2);
+    x1 = Math.max(x1, cx + w / 2);
+    y1 = Math.max(y1, cy + h / 2);
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+/**
+ * A random top-left corner for a box of `size` inside the table (keeping
+ * `margin` from its edges where possible), retrying a few times to avoid the
+ * given areas. If every try overlaps, the last one is used.
+ */
+export function randomSpot(
+  table: Size,
+  size: Size,
+  margin: number,
+  avoid: readonly Area[],
+  rand: () => number,
+  attempts = 30,
+): { x: number; y: number } {
+  const maxX = Math.max(margin, table.w - size.w - margin);
+  const maxY = Math.max(margin, table.h - size.h - margin);
+  let pos = { x: margin, y: margin };
+  for (let i = 0; i < attempts; i++) {
+    pos = { x: margin + rand() * (maxX - margin), y: margin + rand() * (maxY - margin) };
+    const box = { x: pos.x, y: pos.y, w: size.w, h: size.h };
+    if (!avoid.some((a) => overlaps(box, a))) break;
+  }
+  return pos;
+}

@@ -22,6 +22,7 @@ const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
+const shuffleButton = document.querySelector<HTMLButtonElement>('#shuffle')!;
 const edgesButton = document.querySelector<HTMLButtonElement>('#edges')!;
 const zoomOutButton = document.querySelector<HTMLButtonElement>('#zoom-out')!;
 const zoomInButton = document.querySelector<HTMLButtonElement>('#zoom-in')!;
@@ -173,6 +174,7 @@ function useImage(bitmap: ImageBitmap): void {
   emptyState.hidden = true;
   recutButton.disabled = false;
   edgesButton.disabled = false;
+  shuffleButton.disabled = false;
   renderZoom();
 }
 
@@ -261,4 +263,5 @@ zoomInButton.addEventListener('click', () => game.zoomBy(ZOOM_STEP));
 zoomOutButton.addEventListener('click', () => game.zoomBy(1 / ZOOM_STEP));
 zoomResetButton.addEventListener('click', () => game.resetView());
 edgesButton.addEventListener('click', () => game.gatherEdges());
+shuffleButton.addEventListener('click', () => game.shuffle());
 playAgainButton.addEventListener('click', cut);

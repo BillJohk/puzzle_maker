@@ -1,4 +1,13 @@
-import { chooseArea, isEdgePiece, overlaps, packInArea, stripsAround, type Area } from './puzzle/arrange';
+import {
+  chooseArea,
+  groupBounds,
+  isEdgePiece,
+  overlaps,
+  packInArea,
+  randomSpot,
+  stripsAround,
+  type Area,
+} from './puzzle/arrange';
 import { chooseGrid, type Grid } from './puzzle/grid';
 import { mulberry32 } from './puzzle/rng';
 import { fromSaved, toSaved, type SavedPuzzle } from './puzzle/save';
@@ -358,6 +367,39 @@ export class PuzzleGame {
     return edges.length;
   }
 
+  /**
+   * Scatters every loose piece and group to a fresh random spot off the board,
+   * keeping groups together. Doesn't count as a move or start the clock.
+   */
+  shuffle(): void {
+    if (!this.layout || this.solvedState || this.drag || this.glide) return;
+    const { cellW, cellH } = this.layout;
+    const groups = new Map<number, Piece[]>();
+    for (const p of this.pieces) {
+      if (p.locked) continue;
+      const g = groups.get(p.group);
+      if (g) g.push(p);
+      else groups.set(p.group, [p]);
+    }
+    const rand = Math.random;
+    const order = [...groups.values()];
+    for (const members of order) {
+      const box = groupBounds(members, cellW, cellH);
+      const spot = randomSpot(this.tableSize(), box, this.pad, [this.board], rand);
+      this.moveGroup(members, spot.x - box.x, spot.y - box.y);
+    }
+    // Restack the loose groups in a new random order, each kept together.
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    this.pieces = [...this.pieces.filter((p) => p.locked), ...order.flat()];
+    this.keepGroupsInView();
+    this.lastTap = null;
+    this.requestDraw();
+    this.onProgress?.();
+  }
+
   private boardFrame() {
     const { cellW, cellH } = this.layout!;
     return { boardX: this.board.x, boardY: this.board.y, cellW, cellH };
@@ -388,17 +430,7 @@ export class PuzzleGame {
   /** Random cell position, preferring spots that don't cover the board (or the other areas given). */
   private scatterPosition(rand: () => number, avoid: Area[] = []): { x: number; y: number } {
     const { cellW, cellH } = this.layout!;
-    const margin = this.pad;
-    const maxX = Math.max(margin, this.width - cellW - margin);
-    const maxY = Math.max(margin, this.height - cellH - margin);
-    const keepOut = [this.board, ...avoid];
-    let pos = { x: margin, y: margin };
-    for (let attempt = 0; attempt < 30; attempt++) {
-      pos = { x: margin + rand() * (maxX - margin), y: margin + rand() * (maxY - margin) };
-      const box = { x: pos.x, y: pos.y, w: cellW, h: cellH };
-      if (!keepOut.some((a) => overlaps(box, a))) break;
-    }
-    return pos;
+    return randomSpot(this.tableSize(), { w: cellW, h: cellH }, this.pad, [this.board, ...avoid], rand);
   }
 
   private resize(): void {
