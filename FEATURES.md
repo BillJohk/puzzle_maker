@@ -28,7 +28,7 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 
 Rough priority order — top items make the game feel complete.
 
-- [ ] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
+- [x] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
 - [ ] Save progress: persist the current puzzle locally and resume later
 - [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture
 - [ ] Edge sorting: button to gather edge pieces together

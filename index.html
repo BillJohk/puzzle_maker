@@ -19,6 +19,7 @@
       </label>
       <button id="recut" class="button" type="button" disabled>New cut</button>
       <button id="sound" class="button" type="button" aria-pressed="true">Sound on</button>
+      <button id="help" class="button" type="button" aria-haspopup="dialog">How to play</button>
       <span id="status"></span>
     </header>
     <main class="table">
@@ -30,6 +31,20 @@
         <button id="play-again" class="button primary" type="button">New cut</button>
       </div>
     </main>
+    <dialog id="help-dialog" aria-labelledby="help-title">
+      <form method="dialog">
+        <h2 id="help-title">How to play</h2>
+        <ul>
+          <li><strong>Start:</strong> choose an image and a piece count. The image stays on your device.</li>
+          <li><strong>Move:</strong> drag a piece with the mouse, a finger, or a pen.</li>
+          <li><strong>Join:</strong> drop a piece close to a matching neighbor and they snap together, then move as a group.</li>
+          <li><strong>Lock:</strong> drop a piece or group near its spot inside the dashed outline and it locks onto the board.</li>
+          <li><strong>Rotate</strong> (when "Rotate pieces" is on): right-click or double-tap a piece, or press R or Space while dragging. Pieces only join when turned the same way, and only lock when upright.</li>
+          <li><strong>New cut:</strong> re-cuts the same image with fresh piece shapes.</li>
+        </ul>
+        <button class="button primary" type="submit" autofocus>Got it</button>
+      </form>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

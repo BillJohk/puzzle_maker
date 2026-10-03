@@ -15,9 +15,12 @@ const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
 const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
+const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
+const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
 
 const SOUND_KEY = 'puzzle-maker:sound';
 const ROTATE_KEY = 'puzzle-maker:rotate';
+const HELP_SEEN_KEY = 'puzzle-maker:help-seen';
 function readPref(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -45,6 +48,16 @@ soundButton.addEventListener('click', () => {
   writePref(SOUND_KEY, soundOn ? 'on' : 'off');
   renderSoundButton();
 });
+
+helpButton.addEventListener('click', () => helpDialog.showModal());
+// Clicking the backdrop (outside the panel) closes it too.
+helpDialog.addEventListener('click', (e) => {
+  if (e.target === helpDialog) helpDialog.close();
+});
+if (readPref(HELP_SEEN_KEY) === null) {
+  writePref(HELP_SEEN_KEY, '1');
+  helpDialog.showModal();
+}
 
 const DEFAULT_COUNT = 48;
 for (const n of PIECE_COUNT_OPTIONS) {
