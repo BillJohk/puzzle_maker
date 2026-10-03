@@ -1,5 +1,6 @@
 import { chooseGrid, type Grid } from './puzzle/grid';
 import { mulberry32 } from './puzzle/rng';
+import { fromSaved, toSaved, type SavedPuzzle } from './puzzle/save';
 import { createLayout, pieceSides, piecePadding, tracePiece, type PuzzleLayout } from './puzzle/shape';
 import { isSolved, rotateGroup, rotateVector, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
 
@@ -35,6 +36,8 @@ export interface GenerateOptions {
   /** Start pieces at random quarter turns and let the player rotate them. */
   rotate?: boolean;
   seed?: number;
+  /** Use this grid instead of fitting one to `pieceCount` (when restoring a save). */
+  grid?: Grid;
 }
 
 /** Glide of the finished picture onto the board when it was solved elsewhere on the table. */
@@ -75,6 +78,8 @@ export class PuzzleGame {
   private height = 0;
   private dpr = 1;
   private frame = 0;
+  private seed = 0;
+  private pieceCount = 0;
 
   private timerStart: number | null = null;
   private timerAccum = 0;
@@ -90,7 +95,7 @@ export class PuzzleGame {
 
   /** Called once when the puzzle is complete and the finished picture is shown. */
   onSolved: (() => void) | null = null;
-  /** Called after each move, so the UI can refresh its counters. */
+  /** Called after each move or turn, so the UI can refresh its counters and save. */
   onProgress: (() => void) | null = null;
   /** Called when a drop snaps pieces together ('join') or onto the board ('lock'). */
   onSnap: ((kind: 'join' | 'lock') => void) | null = null;
@@ -133,9 +138,12 @@ export class PuzzleGame {
   }
 
   /** Cuts the current image into roughly `pieceCount` pieces and scatters them. */
-  generate(pieceCount: number, { rotate = false, seed = Date.now() }: GenerateOptions = {}): Grid {
+  generate(pieceCount: number, { rotate = false, seed = Date.now(), grid }: GenerateOptions = {}): Grid {
     const image = this.image;
     if (!image) throw new Error('No image loaded');
+    seed >>>= 0;
+    this.seed = seed;
+    this.pieceCount = pieceCount;
     this.drag = null;
     this.lastTap = null;
     this.rotationEnabled = rotate;
@@ -160,7 +168,7 @@ export class PuzzleGame {
       h: boardH,
     };
 
-    const { rows, cols } = chooseGrid(pieceCount, image.width / image.height);
+    const { rows, cols } = grid ?? chooseGrid(pieceCount, image.width / image.height);
     const rand = mulberry32(seed);
     const layout = createLayout(rows, cols, boardW / cols, boardH / rows, rand);
     this.layout = layout;
@@ -192,6 +200,46 @@ export class PuzzleGame {
     this.pieces = pieces;
     this.requestDraw();
     return { rows, cols };
+  }
+
+  /** The current puzzle, ready to store; null when there is nothing worth resuming. */
+  snapshot(): SavedPuzzle | null {
+    if (!this.layout || this.solvedState) return null;
+    const { rows, cols } = this.layout;
+    return toSaved(
+      this.pieces,
+      {
+        seed: this.seed,
+        rows,
+        cols,
+        pieceCount: this.pieceCount,
+        rotate: this.rotationEnabled,
+        elapsedMs: this.elapsedMs,
+        moves: this.moveCount,
+      },
+      this.boardFrame(),
+    );
+  }
+
+  /** Re-cuts the saved puzzle from the current image and puts every piece back where it was. */
+  restore(saved: SavedPuzzle): Grid {
+    const grid = this.generate(saved.pieceCount, {
+      rotate: saved.rotate,
+      seed: saved.seed,
+      grid: { rows: saved.rows, cols: saved.cols },
+    });
+    const byCell = new Map(this.pieces.map((p) => [`${p.row},${p.col}`, p]));
+    this.pieces = fromSaved(saved, this.boardFrame()).map((s) => Object.assign(byCell.get(`${s.row},${s.col}`)!, s));
+    this.timerAccum = saved.elapsedMs;
+    this.moveCount = saved.moves;
+    this.keepGroupsInView();
+    this.requestDraw();
+    return grid;
+  }
+
+  private boardFrame() {
+    const { cellW, cellH } = this.layout!;
+    return { boardX: this.board.x, boardY: this.board.y, cellW, cellH };
   }
 
   private renderSprite(scaled: HTMLCanvasElement, path: Path2D, r: number, c: number): HTMLCanvasElement {
@@ -241,17 +289,20 @@ export class PuzzleGame {
     this.canvas.width = Math.round(rect.width * this.dpr);
     this.canvas.height = Math.round(rect.height * this.dpr);
     // Keep every group grabbable if the window shrank.
-    if (this.layout) {
-      const seen = new Set<number>();
-      for (const p of this.pieces) {
-        if (p.locked || seen.has(p.group)) continue;
-        seen.add(p.group);
-        const members = this.pieces.filter((m) => m.group === p.group);
-        const [x, y] = this.clampToView(p.x, p.y);
-        this.moveGroup(members, x - p.x, y - p.y);
-      }
-    }
+    this.keepGroupsInView();
     this.draw();
+  }
+
+  private keepGroupsInView(): void {
+    if (!this.layout) return;
+    const seen = new Set<number>();
+    for (const p of this.pieces) {
+      if (p.locked || seen.has(p.group)) continue;
+      seen.add(p.group);
+      const members = this.pieces.filter((m) => m.group === p.group);
+      const [x, y] = this.clampToView(p.x, p.y);
+      this.moveGroup(members, x - p.x, y - p.y);
+    }
   }
 
   /** Clamps a proposed piece position so at least half of the piece stays on screen. */

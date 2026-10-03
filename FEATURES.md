@@ -29,7 +29,7 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 Rough priority order — top items make the game feel complete.
 
 - [x] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
-- [ ] Save progress: persist the current puzzle locally and resume later
+- [x] Save progress: the image and puzzle state (piece positions, turns, groups, time, moves) are saved in IndexedDB as you play and restored on the next visit, lined up to the new window size; the save is cleared when the puzzle is solved
 - [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture
 - [ ] Edge sorting: button to gather edge pieces together
 - [ ] Zoom and pan for large piece counts
