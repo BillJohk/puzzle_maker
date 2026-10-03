@@ -19,6 +19,9 @@ const customInput = document.querySelector<HTMLInputElement>('#custom-count')!;
 const recutButton = document.querySelector<HTMLButtonElement>('#recut')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const emptyState = document.querySelector<HTMLElement>('#empty-state')!;
+const toolbar = document.querySelector<HTMLElement>('.toolbar')!;
+const menuToggle = document.querySelector<HTMLButtonElement>('#menu-toggle')!;
+const sampleButton = document.querySelector<HTMLButtonElement>('#sample')!;
 const solvedBanner = document.querySelector<HTMLElement>('#solved-banner')!;
 const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
@@ -34,12 +37,15 @@ const zoomResetButton = document.querySelector<HTMLButtonElement>('#zoom-reset')
 const tableColorSelect = document.querySelector<HTMLSelectElement>('#table-color')!;
 const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
 const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
+const pictureDialog = document.querySelector<HTMLDialogElement>('#picture-dialog')!;
+const pictureLarge = document.querySelector<HTMLCanvasElement>('#picture-large')!;
 
 const SOUND_KEY = 'puzzle-maker:sound';
 const ROTATE_KEY = 'puzzle-maker:rotate';
 const HELP_SEEN_KEY = 'puzzle-maker:help-seen';
 const PREVIEW_KEY = 'puzzle-maker:preview';
 const TABLE_COLOR_KEY = 'puzzle-maker:table-color';
+const MENU_KEY = 'puzzle-maker:menu';
 function readPref(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -127,6 +133,20 @@ function applyTableColor(id: string | null): void {
   game.onLightTable = light;
 }
 applyTableColor(readPref(TABLE_COLOR_KEY));
+
+// The menu bar folds away to leave more room for the table on small screens.
+function setMenuOpen(open: boolean): void {
+  toolbar.classList.toggle('collapsed', !open);
+  menuToggle.textContent = open ? '▴' : '▾';
+  menuToggle.title = menuToggle.ariaLabel = open ? 'Hide menu' : 'Show menu';
+  menuToggle.setAttribute('aria-expanded', String(open));
+}
+setMenuOpen(readPref(MENU_KEY) !== 'closed');
+menuToggle.addEventListener('click', () => {
+  const open = toolbar.classList.contains('collapsed');
+  setMenuOpen(open);
+  writePref(MENU_KEY, open ? 'open' : 'closed');
+});
 tableColorSelect.addEventListener('change', () => {
   writePref(TABLE_COLOR_KEY, tableColorSelect.value);
   applyTableColor(tableColorSelect.value);
@@ -148,15 +168,30 @@ function setPreview(mode: PreviewMode): void {
 previewButton.addEventListener('click', () => setPreview(nextPreviewMode(previewMode)));
 renderPreview();
 
-function drawThumbnail(image: ImageBitmap): void {
-  const { w, h } = fitSize(image.width, image.height, THUMB_MAX_W, THUMB_MAX_H);
+/** Draws `image` into `canvas`, scaled to fit maxW × maxH CSS px. */
+function drawFitted(canvas: HTMLCanvasElement, image: ImageBitmap, maxW: number, maxH: number): void {
+  const { w, h } = fitSize(image.width, image.height, maxW, maxH);
   const dpr = window.devicePixelRatio || 1;
-  thumbnail.width = Math.round(w * dpr);
-  thumbnail.height = Math.round(h * dpr);
-  thumbnail.style.width = `${w}px`;
-  thumbnail.style.height = `${h}px`;
-  thumbnail.getContext('2d')!.drawImage(image, 0, 0, thumbnail.width, thumbnail.height);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
 }
+
+let currentImage: ImageBitmap | null = null;
+function drawThumbnail(image: ImageBitmap): void {
+  currentImage = image;
+  drawFitted(thumbnail, image, THUMB_MAX_W, THUMB_MAX_H);
+}
+
+// Click the thumbnail for a large view; any click closes it.
+thumbnail.addEventListener('click', () => {
+  if (!currentImage) return;
+  drawFitted(pictureLarge, currentImage, window.innerWidth * 0.9, window.innerHeight * 0.85);
+  pictureDialog.showModal();
+});
+pictureDialog.addEventListener('click', () => pictureDialog.close());
 let sizeLabel = '';
 
 const movesLabel = (n: number) => `${n} ${n === 1 ? 'move' : 'moves'}`;
@@ -241,6 +276,18 @@ async function openFile(file: File): Promise<void> {
   await saveImage(file);
   cut();
 }
+
+// A built-in picture for trying the game without one of your own.
+const SAMPLE_URL = `${import.meta.env.BASE_URL}sample.jpg`;
+sampleButton.addEventListener('click', async () => {
+  try {
+    const res = await fetch(SAMPLE_URL);
+    if (!res.ok) throw new Error(res.statusText);
+    await openFile(new File([await res.blob()], 'sample.jpg', { type: 'image/jpeg' }));
+  } catch {
+    status.textContent = "Couldn't load the sample picture.";
+  }
+});
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files?.[0];

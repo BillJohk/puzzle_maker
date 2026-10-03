@@ -49,6 +49,20 @@ body {
   border-bottom: 1px solid var(--toolbar-border);
 }
 
+/* Folded menu: only the toggle and the status line stay. */
+.toolbar.collapsed {
+  padding-block: 6px;
+}
+
+.toolbar.collapsed > :not(#menu-toggle, #status) {
+  display: none;
+}
+
+#menu-toggle {
+  min-width: 34px;
+  padding-inline: 8px;
+}
+
 .toolbar h1 {
   margin: 0 8px 0 0;
   font-size: 1.05rem;
@@ -186,7 +200,7 @@ select:focus-visible {
   border: 3px solid var(--toolbar-bg);
   border-radius: 4px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
+  cursor: zoom-in;
 }
 
 #thumbnail[hidden] {
@@ -217,12 +231,19 @@ select:focus-visible {
   position: absolute;
   inset: 0;
   margin: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 16px;
   text-align: center;
   color: var(--table-fg);
   pointer-events: none;
+}
+
+#empty-state button {
+  pointer-events: auto;
 }
 
 #empty-state[hidden] {
@@ -254,6 +275,23 @@ select:focus-visible {
 
 #solved-banner[hidden] {
   display: none;
+}
+
+#picture-dialog {
+  padding: 0;
+  border: 4px solid var(--toolbar-bg);
+  border-radius: 6px;
+  background: var(--toolbar-bg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  cursor: zoom-out;
+}
+
+#picture-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#picture-large {
+  display: block;
 }
 
 #help-dialog {

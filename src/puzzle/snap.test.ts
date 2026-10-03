@@ -144,6 +144,19 @@ describe('rotation', () => {
     expect(pieces[1].y).toBeCloseTo(280);
     expect(pieces.every((p) => p.rotation === 0)).toBe(true);
   });
+
+  it('turns counterclockwise, undoing a clockwise turn', () => {
+    const pieces = [piece(0, 0, 200, 200, 0), piece(0, 1, 300, 200, 0)];
+    rotateGroup(pieces, 0, 250, 240, 100, 80, -1);
+    expect(pieces.map((p) => [p.x, p.y, p.rotation])).toEqual([
+      [200, 200, 3],
+      [200, 100, 3],
+    ]);
+    rotateGroup(pieces, 0, 250, 240, 100, 80);
+    expect(pieces[1].x).toBeCloseTo(300);
+    expect(pieces[1].y).toBeCloseTo(200);
+    expect(pieces.every((p) => p.rotation === 0)).toBe(true);
+  });
 });
 
 describe('isSolved', () => {

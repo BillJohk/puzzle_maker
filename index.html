@@ -7,6 +7,7 @@
   </head>
   <body>
     <header class="toolbar">
+      <button id="menu-toggle" class="button" type="button" aria-expanded="true" aria-label="Hide menu" title="Hide menu">▴</button>
       <h1>Puzzle Maker</h1>
       <label class="button primary">
         Choose image
@@ -15,7 +16,7 @@
       <select id="difficulty" aria-label="Difficulty"></select>
       <select id="piece-count" aria-label="Piece count"></select>
       <input id="custom-count" type="number" inputmode="numeric" step="1" aria-label="Custom piece count" hidden />
-      <label class="toggle" title="Pieces start turned. Right-click or double-tap a piece, or press R while dragging, to rotate it.">
+      <label class="toggle" title="Pieces start turned. Right-click or double-tap a piece, or press R while dragging (Shift+R turns the other way), to rotate it.">
         <input id="rotate" type="checkbox" />
         Rotate pieces
       </label>
@@ -35,14 +36,20 @@
     </header>
     <main class="table">
       <canvas id="board"></canvas>
-      <canvas id="thumbnail" hidden aria-hidden="true"></canvas>
-      <p id="empty-state">Choose an image, or drop one here, to turn it into a jigsaw puzzle.</p>
+      <canvas id="thumbnail" hidden aria-hidden="true" title="Click to enlarge"></canvas>
+      <div id="empty-state">
+        <p>Choose an image, or drop one here, to turn it into a jigsaw puzzle.</p>
+        <button id="sample" class="button primary" type="button">Try a sample puzzle</button>
+      </div>
       <div id="solved-banner" role="status" hidden>
         <strong>Solved!</strong>
         <span id="solved-detail"></span>
         <button id="play-again" class="button primary" type="button">New cut</button>
       </div>
     </main>
+    <dialog id="picture-dialog" aria-label="Full picture">
+      <canvas id="picture-large"></canvas>
+    </dialog>
     <dialog id="help-dialog" aria-labelledby="help-title">
       <form method="dialog">
         <h2 id="help-title">How to play</h2>
@@ -51,12 +58,13 @@
           <li><strong>Move:</strong> drag a piece with the mouse, a finger, or a pen.</li>
           <li><strong>Join:</strong> drop a piece close to a matching neighbor and they snap together, then move as a group.</li>
           <li><strong>Lock:</strong> drop a piece or group near its spot inside the dashed outline and it locks onto the board.</li>
-          <li><strong>Rotate</strong> (when "Rotate pieces" is on): right-click or double-tap a piece, or press R or Space while dragging. Pieces only join when turned the same way, and only lock when upright.</li>
+          <li><strong>Rotate</strong> (when "Rotate pieces" is on): right-click or double-tap a piece, or press R or Space while dragging (hold Shift to turn the other way). Pieces only join when turned the same way, and only lock when upright.</li>
           <li><strong>Zoom:</strong> scroll the mouse wheel over the table, pinch with two fingers, or use the − / + buttons; click the percentage to zoom back out. While zoomed in, drag an empty spot to look around.</li>
           <li><strong>Shuffle:</strong> scatters the loose pieces and groups to new spots around the board, without re-cutting.</li>
           <li><strong>Gather edges:</strong> moves the loose border pieces together beside the board.</li>
-          <li><strong>Preview:</strong> cycles between no preview, a faint ghost of the picture on the board, and a small copy of the whole picture in the corner.</li>
+          <li><strong>Preview:</strong> cycles between no preview, a faint ghost of the picture on the board, and a small copy of the whole picture in the corner (click it for a large view; click again to close).</li>
           <li><strong>New cut:</strong> re-cuts the same image with fresh piece shapes.</li>
+          <li><strong>Menu:</strong> the ▴ button at the top left folds the menu bar away to leave more room for the table (handy on phones); ▾ brings it back.</li>
           <li><strong>Saving:</strong> your puzzle is saved in this browser as you play, and comes back when you return.</li>
         </ul>
         <button class="button primary" type="submit" autofocus>Got it</button>

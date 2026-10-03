@@ -142,8 +142,9 @@ export function settle(
 }
 
 /**
- * Turns `group` a quarter turn clockwise about the point (px, py). Each piece
- * spins about its own center, and the centers orbit the pivot.
+ * Turns `group` a quarter turn about the point (px, py): clockwise for
+ * `turns` = 1, counterclockwise for -1. Each piece spins about its own center,
+ * and the centers orbit the pivot.
  */
 export function rotateGroup(
   pieces: SnapPiece[],
@@ -152,13 +153,14 @@ export function rotateGroup(
   py: number,
   cellW: number,
   cellH: number,
+  turns: 1 | -1 = 1,
 ): void {
   for (const p of pieces) {
     if (p.group !== group) continue;
-    const [cx, cy] = rotateVector(p.x + cellW / 2 - px, p.y + cellH / 2 - py, 1);
+    const [cx, cy] = rotateVector(p.x + cellW / 2 - px, p.y + cellH / 2 - py, turns);
     p.x = px + cx - cellW / 2;
     p.y = py + cy - cellH / 2;
-    p.rotation = (p.rotation + 1) % 4;
+    p.rotation = (p.rotation + turns + 4) % 4;
   }
 }
 

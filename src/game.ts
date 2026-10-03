@@ -726,10 +726,10 @@ export class PuzzleGame {
     return null;
   }
 
-  /** Turns a group a quarter turn clockwise about (px, py), keeping it on screen. */
-  private rotateAt(group: number, px: number, py: number): void {
+  /** Turns a group a quarter turn (clockwise unless `turns` is -1) about (px, py), keeping it on screen. */
+  private rotateAt(group: number, px: number, py: number, turns: 1 | -1 = 1): void {
     const { cellW, cellH } = this.layout!;
-    rotateGroup(this.pieces, group, px, py, cellW, cellH);
+    rotateGroup(this.pieces, group, px, py, cellW, cellH, turns);
     const members = this.pieces.filter((p) => p.group === group);
     const m0 = members[0];
     const [x, y] = this.clampToView(m0.x, m0.y);
@@ -778,13 +778,13 @@ export class PuzzleGame {
     this.setView(zoomAt(this.view, Math.exp(-delta * WHEEL_ZOOM_SPEED), x, y, this.tableSize()));
   };
 
-  /** R or Space while dragging turns the held group about the pointer. */
+  /** R or Space while dragging turns the held group about the pointer; with Shift, counterclockwise. */
   private onKeyDown = (e: KeyboardEvent): void => {
     const d = this.drag;
     if (!d || !this.rotationEnabled || e.repeat) return;
     if (e.key !== 'r' && e.key !== 'R' && e.key !== ' ') return;
     e.preventDefault();
-    this.rotateAt(d.piece.group, d.px, d.py);
+    this.rotateAt(d.piece.group, d.px, d.py, e.shiftKey ? -1 : 1);
     d.dx = d.px - d.piece.x;
     d.dy = d.py - d.piece.y;
     d.moved = true;
