@@ -22,6 +22,7 @@ const emptyState = document.querySelector<HTMLElement>('#empty-state')!;
 const toolbar = document.querySelector<HTMLElement>('.toolbar')!;
 const menuToggle = document.querySelector<HTMLButtonElement>('#menu-toggle')!;
 const sampleButton = document.querySelector<HTMLButtonElement>('#sample')!;
+const helpSampleButton = document.querySelector<HTMLButtonElement>('#help-sample')!;
 const solvedBanner = document.querySelector<HTMLElement>('#solved-banner')!;
 const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
@@ -279,7 +280,7 @@ async function openFile(file: File): Promise<void> {
 
 // A built-in picture for trying the game without one of your own.
 const SAMPLE_URL = `${import.meta.env.BASE_URL}sample.jpg`;
-sampleButton.addEventListener('click', async () => {
+async function openSample(): Promise<void> {
   try {
     const res = await fetch(SAMPLE_URL);
     if (!res.ok) throw new Error(res.statusText);
@@ -287,6 +288,11 @@ sampleButton.addEventListener('click', async () => {
   } catch {
     status.textContent = "Couldn't load the sample picture.";
   }
+}
+sampleButton.addEventListener('click', () => void openSample());
+helpSampleButton.addEventListener('click', () => {
+  helpDialog.close();
+  void openSample();
 });
 
 fileInput.addEventListener('change', () => {
