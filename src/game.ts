@@ -60,6 +60,7 @@ const SHINE_MS = 1400;
 const FLASH_MS = 450;
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_SLOP = 20;
+const GHOST_ALPHA = 0.25;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -92,6 +93,7 @@ export class PuzzleGame {
   private flash: { members: Piece[]; start: number } | null = null;
   /** When the solved picture was revealed (performance.now()), for the shine animation. */
   private revealedAt: number | null = null;
+  private ghost = false;
 
   /** Called once when the puzzle is complete and the finished picture is shown. */
   onSolved: (() => void) | null = null;
@@ -130,6 +132,12 @@ export class PuzzleGame {
 
   get solved(): boolean {
     return this.solvedState;
+  }
+
+  /** Shows a faint copy of the picture on the board, under the pieces. */
+  set showGhost(on: boolean) {
+    this.ghost = on;
+    this.requestDraw();
   }
 
   setImage(image: ImageBitmap): void {
@@ -356,6 +364,12 @@ export class PuzzleGame {
     ctx.lineWidth = 1;
     ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
     ctx.setLineDash([]);
+    if (this.ghost && this.revealedAt === null) {
+      ctx.save();
+      ctx.globalAlpha = GHOST_ALPHA;
+      ctx.drawImage(this.scaled!, b.x, b.y, b.w, b.h);
+      ctx.restore();
+    }
 
     const { cellW, cellH } = this.layout;
     const pad = this.pad;

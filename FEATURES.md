@@ -30,7 +30,7 @@ Rough priority order — top items make the game feel complete.
 
 - [x] How to play: a help panel (toolbar button, shown on first visit) listing the controls: drag to move, right-click / double-tap / R / Space to rotate, snapping and locking rules
 - [x] Save progress: the image and puzzle state (piece positions, turns, groups, time, moves) are saved in IndexedDB as you play and restored on the next visit, lined up to the new window size; the save is cleared when the puzzle is solved
-- [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture
+- [x] Preview: a toolbar button cycles between no preview, a faint ghost of the picture on the board under the pieces, and a thumbnail of the full picture in the corner; the choice is remembered
 - [ ] Edge sorting: button to gather edge pieces together
 - [ ] Zoom and pan for large piece counts
 - [ ] Better touch support (pinch zoom, larger hit areas)

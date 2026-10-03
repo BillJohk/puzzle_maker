@@ -2,6 +2,7 @@ import './style.css';
 import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
+import { fitSize, nextPreviewMode, parsePreviewMode, PREVIEW_LABELS, type PreviewMode } from './puzzle/preview';
 import { parseSaved } from './puzzle/save';
 import { playChime, playClick, playTap } from './sound';
 import { clearSave, loadSave, saveImage, saveState } from './storage';
@@ -19,10 +20,13 @@ const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
+const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
+const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
 
 const SOUND_KEY = 'puzzle-maker:sound';
 const ROTATE_KEY = 'puzzle-maker:rotate';
 const HELP_SEEN_KEY = 'puzzle-maker:help-seen';
+const PREVIEW_KEY = 'puzzle-maker:preview';
 function readPref(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -67,6 +71,32 @@ for (const n of PIECE_COUNT_OPTIONS) {
 }
 
 const game = new PuzzleGame(canvas);
+
+const THUMB_MAX_W = 220;
+const THUMB_MAX_H = 160;
+let previewMode = parsePreviewMode(readPref(PREVIEW_KEY));
+function renderPreview(): void {
+  previewButton.textContent = PREVIEW_LABELS[previewMode];
+  game.showGhost = previewMode === 'ghost';
+  thumbnail.hidden = previewMode !== 'thumbnail' || !game.hasImage || game.solved;
+}
+function setPreview(mode: PreviewMode): void {
+  previewMode = mode;
+  writePref(PREVIEW_KEY, mode);
+  renderPreview();
+}
+previewButton.addEventListener('click', () => setPreview(nextPreviewMode(previewMode)));
+renderPreview();
+
+function drawThumbnail(image: ImageBitmap): void {
+  const { w, h } = fitSize(image.width, image.height, THUMB_MAX_W, THUMB_MAX_H);
+  const dpr = window.devicePixelRatio || 1;
+  thumbnail.width = Math.round(w * dpr);
+  thumbnail.height = Math.round(h * dpr);
+  thumbnail.style.width = `${w}px`;
+  thumbnail.style.height = `${h}px`;
+  thumbnail.getContext('2d')!.drawImage(image, 0, 0, thumbnail.width, thumbnail.height);
+}
 let sizeLabel = '';
 
 const movesLabel = (n: number) => `${n} ${n === 1 ? 'move' : 'moves'}`;
@@ -111,12 +141,14 @@ game.onSolved = () => {
   updateStatus();
   solvedDetail.textContent = `${sizeLabel} in ${formatDuration(game.elapsedMs)}, ${movesLabel(game.moves)}`;
   solvedBanner.hidden = false;
+  renderPreview();
 };
 setInterval(updateStatus, 1000);
 
 function showPuzzle({ rows, cols }: { rows: number; cols: number }): void {
   sizeLabel = `${cols} × ${rows} = ${rows * cols} pieces`;
   solvedBanner.hidden = true;
+  renderPreview();
   updateStatus();
 }
 
@@ -131,6 +163,7 @@ const decode = (image: Blob) => createImageBitmap(image, { imageOrientation: 'fr
 
 function useImage(bitmap: ImageBitmap): void {
   game.setImage(bitmap);
+  drawThumbnail(bitmap);
   emptyState.hidden = true;
   recutButton.disabled = false;
 }
