@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Puzzle Maker</title>
+  </head>
+  <body>
+    <header class="toolbar">
+      <h1>Puzzle Maker</h1>
+      <label class="button primary">
+        Choose image
+        <input id="image-input" type="file" accept="image/*" hidden />
+      </label>
+      <select id="piece-count" aria-label="Piece count"></select>
+      <button id="recut" class="button" type="button" disabled>New cut</button>
+      <span id="status" role="status"></span>
+    </header>
+    <main class="table">
+      <canvas id="board"></canvas>
+      <p id="empty-state">Choose an image to turn it into a jigsaw puzzle.</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

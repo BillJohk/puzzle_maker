@@ -1,0 +1,125 @@
+:root {
+  --toolbar-bg: #f6f5f2;
+  --toolbar-fg: #1f1f1f;
+  --toolbar-border: #dcd9d2;
+  --control-bg: #ffffff;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --table-bg: #2c4a3b;
+  --table-fg: rgba(255, 255, 255, 0.75);
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --toolbar-bg: #1d1f1e;
+    --toolbar-fg: #e8e6e1;
+    --toolbar-border: #333634;
+    --control-bg: #2a2c2b;
+    --accent: #4f9a72;
+    --table-bg: #1f3329;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--table-bg);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  border-bottom: 1px solid var(--toolbar-border);
+}
+
+.toolbar h1 {
+  margin: 0 8px 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.button,
+select {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--toolbar-border);
+  background: var(--control-bg);
+  color: inherit;
+  cursor: pointer;
+}
+
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button:focus-within,
+.button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#status {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.table {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+#board.dragging {
+  cursor: grabbing;
+}
+
+#empty-state {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  color: var(--table-fg);
+  pointer-events: none;
+}
+
+#empty-state[hidden] {
+  display: none;
+}
