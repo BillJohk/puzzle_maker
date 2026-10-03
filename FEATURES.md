@@ -33,7 +33,7 @@ Rough priority order — top items make the game feel complete.
 - [x] Preview: a toolbar button cycles between no preview, a faint ghost of the picture on the board under the pieces, and a thumbnail of the full picture in the corner; the choice is remembered
 - [x] Edge sorting: "Gather edges" lays the loose border pieces out in a tidy grid in the roomiest strip beside the board (overlapping like shingles when crowded) and moves loose inner pieces out of that strip
 - [x] Zoom and pan for large piece counts: mouse-wheel zoom about the cursor (100–400%) and − / % / + toolbar buttons; drag an empty spot to pan while zoomed in. Piece sprites are rendered at extra resolution (within a memory budget) so they stay sharp when zoomed
-- [ ] Better touch support (pinch zoom, larger hit areas)
+- [x] Better touch support: two-finger pinch zooms and pans the table; fingers and pens pick up a piece even on a near miss (within ~22 px of its outline); larger toolbar controls on touch screens
 - [ ] Drag-and-drop an image file onto the page
 - [ ] Shuffle / re-scatter pieces without re-cutting
 - [ ] Custom piece counts and difficulty presets

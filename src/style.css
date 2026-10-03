@@ -127,6 +127,19 @@ select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* Bigger targets for fingers. */
+@media (pointer: coarse) {
+  .button,
+  select {
+    padding: 10px 14px;
+  }
+
+  .toggle input {
+    width: 22px;
+    height: 22px;
+  }
+}
+
 #status {
   font-size: 0.85rem;
   opacity: 0.75;

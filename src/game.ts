@@ -4,7 +4,18 @@ import { mulberry32 } from './puzzle/rng';
 import { fromSaved, toSaved, type SavedPuzzle } from './puzzle/save';
 import { createLayout, pieceSides, piecePadding, tracePiece, type PuzzleLayout } from './puzzle/shape';
 import { isSolved, rotateGroup, rotateVector, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
-import { clampView, IDENTITY_VIEW, MAX_ZOOM, panBy, toTable, zoomAt, type View } from './puzzle/view';
+import {
+  clampView,
+  IDENTITY_VIEW,
+  MAX_ZOOM,
+  panBy,
+  pinchView,
+  probePoints,
+  toTable,
+  zoomAt,
+  type Point,
+  type View,
+} from './puzzle/view';
 
 /** Position (x, y) is the canvas position (CSS px) of the piece's cell top-left corner. */
 interface Piece extends SnapPiece {
@@ -26,6 +37,14 @@ interface Pan {
   pointerId: number;
   sx: number;
   sy: number;
+}
+
+/** A two-finger pinch: the fingers' ids and screen positions when it began. */
+interface Pinch {
+  ids: [number, number];
+  start: View;
+  a0: Point;
+  b0: Point;
 }
 
 interface Drag {
@@ -73,6 +92,8 @@ const GHOST_ALPHA = 0.25;
 /** Most pixels spent on piece sprites, so zoomed-in pieces stay sharp without exhausting memory. */
 const SPRITE_PIXEL_BUDGET = 16_000_000;
 const WHEEL_ZOOM_SPEED = 0.0015;
+/** How far (screen px) a finger or pen may miss a piece and still pick it up. */
+const TOUCH_REACH = 22;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -94,6 +115,9 @@ export class PuzzleGame {
   private res = 1;
   private view: View = IDENTITY_VIEW;
   private pan: Pan | null = null;
+  private pinch: Pinch | null = null;
+  /** Screen positions of fingers and pens currently on the table. */
+  private touches = new Map<number, Point>();
   private frame = 0;
   private seed = 0;
   private pieceCount = 0;
@@ -611,6 +635,39 @@ export class PuzzleGame {
   }
 
   /** Topmost piece whose actual outline (not just its box) contains the point. */
+  /** Like pieceAt, but forgiving of a near miss within `reach` (table units). */
+  private pieceNear(x: number, y: number, reach: number): Piece | null {
+    for (const q of [{ x, y }, ...probePoints(x, y, reach)]) {
+      const piece = this.pieceAt(q.x, q.y);
+      if (piece) return piece;
+    }
+    return null;
+  }
+
+  /**
+   * A second finger turns the gesture into a pinch, unless a piece is already
+   * being dragged somewhere (then the extra finger is ignored).
+   */
+  private startPinch(e: PointerEvent): void {
+    if (this.pinch || this.drag?.moved) return;
+    const other = [...this.touches.keys()].find((id) => id !== e.pointerId);
+    if (other === undefined) return;
+    if (this.drag) {
+      this.drag = null;
+      this.canvas.classList.remove('dragging');
+      this.requestDraw();
+    }
+    this.pan = null;
+    this.canvas.classList.remove('panning');
+    this.lastTap = null;
+    this.pinch = {
+      ids: [other, e.pointerId],
+      start: this.view,
+      a0: this.touches.get(other)!,
+      b0: this.touches.get(e.pointerId)!,
+    };
+  }
+
   private pieceAt(x: number, y: number): Piece | null {
     const { cellW, cellH } = this.layout!;
     const pad = this.pad;
@@ -695,10 +752,21 @@ export class PuzzleGame {
   };
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (!this.layout || this.drag || this.pan) return;
+    if (!this.layout) return;
+    if (e.pointerType !== 'mouse') {
+      this.touches.set(e.pointerId, this.screenPos(e));
+      // Capture every finger so its lift is seen even off the canvas.
+      this.canvas.setPointerCapture(e.pointerId);
+      if (this.touches.size >= 2) {
+        this.startPinch(e);
+        return;
+      }
+    }
+    if (this.drag || this.pan || this.pinch) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const { x, y } = this.pointerPos(e);
-    const piece = this.solvedState ? null : this.pieceAt(x, y);
+    const reach = e.pointerType === 'mouse' ? 0 : TOUCH_REACH / this.view.zoom;
+    const piece = this.solvedState ? null : this.pieceNear(x, y, reach);
     if (!piece) {
       // Dragging the empty table moves a zoomed-in view around.
       if (this.view.zoom > 1) {
@@ -730,6 +798,14 @@ export class PuzzleGame {
   };
 
   private onPointerMove = (e: PointerEvent): void => {
+    if (this.touches.has(e.pointerId)) this.touches.set(e.pointerId, this.screenPos(e));
+    const pinch = this.pinch;
+    if (pinch?.ids.includes(e.pointerId)) {
+      const a1 = this.touches.get(pinch.ids[0]);
+      const b1 = this.touches.get(pinch.ids[1]);
+      if (a1 && b1) this.setView(pinchView(pinch.start, pinch.a0, pinch.b0, a1, b1, this.tableSize()));
+      return;
+    }
     if (this.pan?.pointerId === e.pointerId) {
       const s = this.screenPos(e);
       this.setView(panBy(this.view, s.x - this.pan.sx, s.y - this.pan.sy, this.tableSize()));
@@ -750,6 +826,12 @@ export class PuzzleGame {
   };
 
   private onPointerUp = (e: PointerEvent): void => {
+    this.touches.delete(e.pointerId);
+    if (this.pinch?.ids.includes(e.pointerId)) {
+      // The other finger stays idle until lifted.
+      this.pinch = null;
+      return;
+    }
     if (this.pan?.pointerId === e.pointerId) {
       this.pan = null;
       this.canvas.classList.remove('panning');
