@@ -81,6 +81,8 @@ export class PuzzleGame {
   onProgress: (() => void) | null = null;
   /** Called when a drop snaps pieces together ('join') or onto the board ('lock'). */
   onSnap: ((kind: 'join' | 'lock') => void) | null = null;
+  /** Called when a piece or group is picked up. */
+  onPickUp: (() => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -434,6 +436,7 @@ export class PuzzleGame {
     this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
     this.drag = { piece, members, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y, moved: false };
     this.timerStart ??= performance.now();
+    this.onPickUp?.();
     this.canvas.setPointerCapture(e.pointerId);
     this.canvas.classList.add('dragging');
     this.requestDraw();

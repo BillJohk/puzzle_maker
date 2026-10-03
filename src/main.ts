@@ -2,7 +2,7 @@ import './style.css';
 import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
-import { playClick } from './sound';
+import { playChime, playClick, playTap } from './sound';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const fileInput = document.querySelector<HTMLInputElement>('#image-input')!;
@@ -63,7 +63,11 @@ game.onProgress = updateStatus;
 game.onSnap = (kind) => {
   if (soundOn) playClick(kind === 'lock' ? 0.75 : 1);
 };
+game.onPickUp = () => {
+  if (soundOn) playTap();
+};
 game.onSolved = () => {
+  if (soundOn) playChime();
   updateStatus();
   solvedDetail.textContent = `${sizeLabel} in ${formatDuration(game.elapsedMs)}, ${movesLabel(game.moves)}`;
   solvedBanner.hidden = false;
