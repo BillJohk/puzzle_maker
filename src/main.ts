@@ -14,8 +14,10 @@ const solvedBanner = document.querySelector<HTMLElement>('#solved-banner')!;
 const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
 const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
+const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 
 const SOUND_KEY = 'puzzle-maker:sound';
+const ROTATE_KEY = 'puzzle-maker:rotate';
 function readPref(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -37,6 +39,7 @@ function renderSoundButton(): void {
   soundButton.textContent = soundOn ? 'Sound on' : 'Sound off';
 }
 renderSoundButton();
+rotateToggle.checked = readPref(ROTATE_KEY) === 'on';
 soundButton.addEventListener('click', () => {
   soundOn = !soundOn;
   writePref(SOUND_KEY, soundOn ? 'on' : 'off');
@@ -76,7 +79,7 @@ setInterval(updateStatus, 1000);
 
 function cut(): void {
   if (!game.hasImage) return;
-  const { rows, cols } = game.generate(Number(countSelect.value));
+  const { rows, cols } = game.generate(Number(countSelect.value), { rotate: rotateToggle.checked });
   sizeLabel = `${cols} × ${rows} = ${rows * cols} pieces`;
   solvedBanner.hidden = true;
   updateStatus();
@@ -101,5 +104,9 @@ fileInput.addEventListener('change', async () => {
 });
 
 countSelect.addEventListener('change', cut);
+rotateToggle.addEventListener('change', () => {
+  writePref(ROTATE_KEY, rotateToggle.checked ? 'on' : 'off');
+  cut();
+});
 recutButton.addEventListener('click', cut);
 playAgainButton.addEventListener('click', cut);

@@ -13,6 +13,10 @@
         <input id="image-input" type="file" accept="image/*" hidden />
       </label>
       <select id="piece-count" aria-label="Piece count"></select>
+      <label class="toggle" title="Pieces start turned. Right-click or double-tap a piece, or press R while dragging, to rotate it.">
+        <input id="rotate" type="checkbox" />
+        Rotate pieces
+      </label>
       <button id="recut" class="button" type="button" disabled>New cut</button>
       <button id="sound" class="button" type="button" aria-pressed="true">Sound on</button>
       <span id="status"></span>

@@ -85,6 +85,21 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.toggle input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 #status {
   font-size: 0.85rem;
   opacity: 0.75;

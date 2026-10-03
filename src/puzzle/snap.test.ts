@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { applySnap, findSnap, isSolved, settle, type SnapGeometry, type SnapPiece } from './snap';
+import {
+  applySnap,
+  findSnap,
+  isSolved,
+  rotateGroup,
+  rotateVector,
+  settle,
+  type SnapGeometry,
+  type SnapPiece,
+} from './snap';
 
 const geo: SnapGeometry = { cellW: 100, cellH: 80, boardX: 1000, boardY: 1000, tolerance: 20 };
 
-function piece(row: number, col: number, x: number, y: number, group: number): SnapPiece {
-  return { row, col, x, y, group, locked: false };
+function piece(row: number, col: number, x: number, y: number, group: number, rotation = 0): SnapPiece {
+  return { row, col, x, y, group, locked: false, rotation };
 }
 
 describe('findSnap', () => {
@@ -87,7 +96,61 @@ describe('settle', () => {
   });
 });
 
+describe('rotation', () => {
+  it('rotates vectors clockwise on screen', () => {
+    expect(rotateVector(1, 0, 1)).toEqual([-0, 1]);
+    expect(rotateVector(1, 0, 2)).toEqual([-1, -0]);
+    expect(rotateVector(1, 0, 3)).toEqual([0, -1]);
+    expect(rotateVector(1, 0, 4)).toEqual([1, 0]);
+    expect(rotateVector(1, 0, -1)).toEqual([0, -1]);
+  });
+
+  it('only snaps neighbors with the same rotation', () => {
+    const pieces = [piece(0, 0, 200, 200, 0, 1), piece(0, 1, 300, 200, 1, 0)];
+    expect(findSnap(pieces, 1, geo)).toBeNull();
+  });
+
+  it('expects a rotated neighbor in the rotated direction', () => {
+    // Turned a quarter clockwise, the piece to the right of (0, 0) sits below it.
+    const pieces = [piece(0, 0, 200, 200, 0, 1), piece(0, 1, 203, 298, 1, 1)];
+    expect(findSnap(pieces, 1, geo)).toEqual({ dx: -3, dy: 2, target: { kind: 'group', group: 0 } });
+  });
+
+  it('does not lock a rotated piece onto the board', () => {
+    const pieces = [piece(0, 0, 1000, 1000, 0, 2)];
+    expect(findSnap(pieces, 0, geo)).toBeNull();
+  });
+
+  it('turns a group about a pivot, keeping it assembled', () => {
+    const pieces = [piece(0, 0, 200, 200, 0), piece(0, 1, 300, 200, 0)];
+    // Pivot on the center of (0, 0): it spins in place and (0, 1) swings below it.
+    rotateGroup(pieces, 0, 250, 240, 100, 80);
+    expect(pieces.map((p) => [p.x, p.y, p.rotation])).toEqual([
+      [200, 200, 1],
+      [200, 300, 1],
+    ]);
+    // Still a valid pair for the snapping rules: nothing to correct.
+    const geoSameCells = { ...geo, cellW: 100, cellH: 80 };
+    pieces[1].group = 1;
+    expect(findSnap(pieces, 1, geoSameCells)).toEqual({ dx: 0, dy: 0, target: { kind: 'group', group: 0 } });
+  });
+
+  it('returns to the start after four turns', () => {
+    const pieces = [piece(0, 0, 200, 200, 0), piece(1, 0, 200, 280, 0)];
+    for (let i = 0; i < 4; i++) rotateGroup(pieces, 0, 237, 251, 100, 80);
+    expect(pieces[0].x).toBeCloseTo(200);
+    expect(pieces[0].y).toBeCloseTo(200);
+    expect(pieces[1].x).toBeCloseTo(200);
+    expect(pieces[1].y).toBeCloseTo(280);
+    expect(pieces.every((p) => p.rotation === 0)).toBe(true);
+  });
+});
+
 describe('isSolved', () => {
+  it('is not solved while the single group is rotated', () => {
+    expect(isSolved([piece(0, 0, 0, 0, 3, 2), piece(0, 1, -100, 0, 3, 2)])).toBe(false);
+  });
+
   it('is solved when every piece is locked', () => {
     const pieces = [piece(0, 0, 1000, 1000, 0), piece(0, 1, 1100, 1000, 1)];
     expect(isSolved(pieces)).toBe(false);

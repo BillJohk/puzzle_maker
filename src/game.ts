@@ -1,7 +1,7 @@
 import { chooseGrid, type Grid } from './puzzle/grid';
 import { mulberry32 } from './puzzle/rng';
 import { createLayout, pieceSides, piecePadding, tracePiece, type PuzzleLayout } from './puzzle/shape';
-import { isSolved, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
+import { isSolved, rotateGroup, rotateVector, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
 
 /** Position (x, y) is the canvas position (CSS px) of the piece's cell top-left corner. */
 interface Piece extends SnapPiece {
@@ -25,7 +25,16 @@ interface Drag {
   pointerId: number;
   dx: number;
   dy: number;
+  /** Latest pointer position, the pivot for rotating mid-drag. */
+  px: number;
+  py: number;
   moved: boolean;
+}
+
+export interface GenerateOptions {
+  /** Start pieces at random quarter turns and let the player rotate them. */
+  rotate?: boolean;
+  seed?: number;
 }
 
 /** Glide of the finished picture onto the board when it was solved elsewhere on the table. */
@@ -46,6 +55,8 @@ const GLIDE_MS = 700;
 const REVEAL_MS = 400;
 const SHINE_MS = 1400;
 const FLASH_MS = 450;
+const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_SLOP = 20;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -70,6 +81,8 @@ export class PuzzleGame {
   private moveCount = 0;
   private solvedState = false;
   private glide: FinishGlide | null = null;
+  private rotationEnabled = false;
+  private lastTap: { group: number; time: number; x: number; y: number } | null = null;
   /** Pieces that just snapped, highlighted briefly. */
   private flash: { members: Piece[]; start: number } | null = null;
   /** When the solved picture was revealed (performance.now()), for the shine animation. */
@@ -92,6 +105,8 @@ export class PuzzleGame {
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerUp);
+    canvas.addEventListener('contextmenu', this.onContextMenu);
+    window.addEventListener('keydown', this.onKeyDown);
     this.resize();
   }
 
@@ -118,10 +133,12 @@ export class PuzzleGame {
   }
 
   /** Cuts the current image into roughly `pieceCount` pieces and scatters them. */
-  generate(pieceCount: number, seed = Date.now()): Grid {
+  generate(pieceCount: number, { rotate = false, seed = Date.now() }: GenerateOptions = {}): Grid {
     const image = this.image;
     if (!image) throw new Error('No image loaded');
     this.drag = null;
+    this.lastTap = null;
+    this.rotationEnabled = rotate;
     this.glide = null;
     this.flash = null;
     this.revealedAt = null;
@@ -163,7 +180,8 @@ export class PuzzleGame {
         tracePiece(pieceSides(layout, r, c), path);
         const { x, y } = this.scatterPosition(rand);
         const sprite = this.renderSprite(scaled, path, r, c);
-        pieces.push({ row: r, col: c, x, y, group: r * cols + c, locked: false, path, sprite });
+        const rotation = rotate ? Math.floor(rand() * 4) : 0;
+        pieces.push({ row: r, col: c, x, y, rotation, group: r * cols + c, locked: false, path, sprite });
       }
     }
     // Shuffle the stacking order so neighbors aren't layered predictably.
@@ -290,8 +308,17 @@ export class PuzzleGame {
 
     const { cellW, cellH } = this.layout;
     const pad = this.pad;
-    const drawPiece = (p: Piece) =>
-      ctx.drawImage(p.sprite, p.x - pad, p.y - pad, cellW + 2 * pad, cellH + 2 * pad);
+    const drawPiece = (p: Piece) => {
+      if (p.rotation === 0) {
+        ctx.drawImage(p.sprite, p.x - pad, p.y - pad, cellW + 2 * pad, cellH + 2 * pad);
+        return;
+      }
+      ctx.save();
+      ctx.translate(p.x + cellW / 2, p.y + cellH / 2);
+      ctx.rotate((p.rotation * Math.PI) / 2);
+      ctx.drawImage(p.sprite, -cellW / 2 - pad, -cellH / 2 - pad, cellW + 2 * pad, cellH + 2 * pad);
+      ctx.restore();
+    };
     const dragged = new Set(this.drag?.members);
     for (const p of this.pieces) if (!dragged.has(p)) drawPiece(p);
 
@@ -328,7 +355,11 @@ export class PuzzleGame {
     ctx.shadowColor = 'rgba(255, 236, 160, 0.9)';
     ctx.shadowBlur = 10;
     for (const p of this.flash!.members) {
-      ctx.setTransform(this.dpr, 0, 0, this.dpr, this.dpr * (p.x - p.col * cellW), this.dpr * (p.y - p.row * cellH));
+      // Board coordinates -> the piece's on-screen position and rotation.
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.translate(p.x + cellW / 2, p.y + cellH / 2);
+      ctx.rotate((p.rotation * Math.PI) / 2);
+      ctx.translate(-(p.col + 0.5) * cellW, -(p.row + 0.5) * cellH);
       ctx.stroke(p.path);
     }
     ctx.restore();
@@ -414,51 +445,36 @@ export class PuzzleGame {
   private pieceAt(x: number, y: number): Piece | null {
     const { cellW, cellH } = this.layout!;
     const pad = this.pad;
+    const reach = Math.max(cellW, cellH) / 2 + pad;
     for (let i = this.pieces.length - 1; i >= 0; i--) {
       const p = this.pieces[i];
       if (p.locked) continue;
-      if (x < p.x - pad || x > p.x + cellW + pad || y < p.y - pad || y > p.y + cellH + pad) continue;
-      const lx = x - p.x + p.col * cellW;
-      const ly = y - p.y + p.row * cellH;
+      const cx = p.x + cellW / 2;
+      const cy = p.y + cellH / 2;
+      if (Math.abs(x - cx) > reach || Math.abs(y - cy) > reach) continue;
+      // Undo the piece's rotation to get back to board coordinates.
+      const [ux, uy] = rotateVector(x - cx, y - cy, -p.rotation);
+      const lx = (p.col + 0.5) * cellW + ux;
+      const ly = (p.row + 0.5) * cellH + uy;
       if (this.hitCtx.isPointInPath(p.path, lx, ly)) return p;
     }
     return null;
   }
 
-  private onPointerDown = (e: PointerEvent): void => {
-    if (!this.layout || this.drag || this.solvedState) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const { x, y } = this.pointerPos(e);
-    const piece = this.pieceAt(x, y);
-    if (!piece) return;
-    // Lift the whole group to the top, keeping its internal stacking order.
-    const members = this.pieces.filter((p) => p.group === piece.group);
-    this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
-    this.drag = { piece, members, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y, moved: false };
-    this.timerStart ??= performance.now();
+  /** Turns a group a quarter turn clockwise about (px, py), keeping it on screen. */
+  private rotateAt(group: number, px: number, py: number): void {
+    const { cellW, cellH } = this.layout!;
+    rotateGroup(this.pieces, group, px, py, cellW, cellH);
+    const members = this.pieces.filter((p) => p.group === group);
+    const m0 = members[0];
+    const [x, y] = this.clampToView(m0.x, m0.y);
+    this.moveGroup(members, x - m0.x, y - m0.y);
     this.onPickUp?.();
-    this.canvas.setPointerCapture(e.pointerId);
-    this.canvas.classList.add('dragging');
     this.requestDraw();
-  };
+  }
 
-  private onPointerMove = (e: PointerEvent): void => {
-    if (this.drag?.pointerId !== e.pointerId) return;
-    const { x, y } = this.pointerPos(e);
-    const p = this.drag.piece;
-    const [nx, ny] = this.clampToView(x - this.drag.dx, y - this.drag.dy);
-    if (nx === p.x && ny === p.y) return;
-    this.drag.moved = true;
-    this.moveGroup(this.drag.members, nx - p.x, ny - p.y);
-    this.requestDraw();
-  };
-
-  private onPointerUp = (e: PointerEvent): void => {
-    if (this.drag?.pointerId !== e.pointerId) return;
-    const { piece, members, moved } = this.drag;
-    this.drag = null;
-    this.canvas.classList.remove('dragging');
-    if (moved) this.moveCount++;
+  /** Snaps a group after it moved or turned, then checks for a finished puzzle. */
+  private settleGroup(piece: Piece, members: Piece[]): void {
     const { snapped } = settle(this.pieces, piece.group, this.snapGeometry());
     if (snapped) {
       this.flash = { members, start: performance.now() };
@@ -469,5 +485,101 @@ export class PuzzleGame {
     }
     this.requestDraw();
     this.onProgress?.();
+  }
+
+  /** Rotates a loose piece in place (right-click). */
+  private rotatePieceAt(x: number, y: number): void {
+    if (!this.layout || !this.rotationEnabled || this.solvedState || this.drag) return;
+    const piece = this.pieceAt(x, y);
+    if (!piece) return;
+    this.timerStart ??= performance.now();
+    this.rotateAt(piece.group, x, y);
+    this.moveCount++;
+    this.settleGroup(piece, this.pieces.filter((p) => p.group === piece.group));
+  }
+
+  private onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault();
+    const rect = this.canvas.getBoundingClientRect();
+    this.rotatePieceAt(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  /** R or Space while dragging turns the held group about the pointer. */
+  private onKeyDown = (e: KeyboardEvent): void => {
+    const d = this.drag;
+    if (!d || !this.rotationEnabled || e.repeat) return;
+    if (e.key !== 'r' && e.key !== 'R' && e.key !== ' ') return;
+    e.preventDefault();
+    this.rotateAt(d.piece.group, d.px, d.py);
+    d.dx = d.px - d.piece.x;
+    d.dy = d.py - d.piece.y;
+    d.moved = true;
+  };
+
+  private onPointerDown = (e: PointerEvent): void => {
+    if (!this.layout || this.drag || this.solvedState) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const { x, y } = this.pointerPos(e);
+    const piece = this.pieceAt(x, y);
+    if (!piece) return;
+    // Lift the whole group to the top, keeping its internal stacking order.
+    const members = this.pieces.filter((p) => p.group === piece.group);
+    this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
+    this.drag = {
+      piece,
+      members,
+      pointerId: e.pointerId,
+      dx: x - piece.x,
+      dy: y - piece.y,
+      px: x,
+      py: y,
+      moved: false,
+    };
+    this.timerStart ??= performance.now();
+    this.onPickUp?.();
+    this.canvas.setPointerCapture(e.pointerId);
+    this.canvas.classList.add('dragging');
+    this.requestDraw();
+  };
+
+  private onPointerMove = (e: PointerEvent): void => {
+    if (this.drag?.pointerId !== e.pointerId) return;
+    const { x, y } = this.pointerPos(e);
+    this.drag.px = x;
+    this.drag.py = y;
+    const p = this.drag.piece;
+    const [nx, ny] = this.clampToView(x - this.drag.dx, y - this.drag.dy);
+    if (nx === p.x && ny === p.y) return;
+    this.drag.moved = true;
+    this.moveGroup(this.drag.members, nx - p.x, ny - p.y);
+    this.requestDraw();
+  };
+
+  private onPointerUp = (e: PointerEvent): void => {
+    if (this.drag?.pointerId !== e.pointerId) return;
+    const { piece, members, moved, px, py } = this.drag;
+    this.drag = null;
+    this.canvas.classList.remove('dragging');
+    if (moved) {
+      this.moveCount++;
+      this.lastTap = null;
+    } else if (this.rotationEnabled && e.type === 'pointerup') {
+      // Two quick taps on the same piece rotate it (works for touch and mouse).
+      const now = performance.now();
+      const t = this.lastTap;
+      if (
+        t &&
+        t.group === piece.group &&
+        now - t.time < DOUBLE_TAP_MS &&
+        Math.hypot(px - t.x, py - t.y) < DOUBLE_TAP_SLOP
+      ) {
+        this.lastTap = null;
+        this.rotateAt(piece.group, px, py);
+        this.moveCount++;
+      } else {
+        this.lastTap = { group: piece.group, time: now, x: px, y: py };
+      }
+    }
+    this.settleGroup(piece, members);
   };
 }

@@ -22,12 +22,12 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 - [x] Timer and move counter in the toolbar (clock starts on the first grab)
 - [x] Snap feedback: a brief glow and a wooden click when pieces join (lower click when locking to the board); sound toggle remembered
 - [x] Solved chime (rising C-major arpeggio) and a soft tap when picking up a piece
+- [x] Piece rotation (optional "Rotate pieces" toggle, off by default): pieces start at random quarter turns; right-click or double-tap a piece, or press R / Space while dragging, to turn it. Pieces only join when turned the same way, and only lock onto the board when upright
 
 ## Backlog
 
 Rough priority order — top items make the game feel complete.
 
-- [ ] Piece rotation: pieces start rotated; player rotates them (e.g. right-click / double-tap / key)
 - [ ] Save progress: persist the current puzzle locally and resume later
 - [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture
 - [ ] Edge sorting: button to gather edge pieces together
