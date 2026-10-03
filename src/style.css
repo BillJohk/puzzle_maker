@@ -140,6 +140,21 @@ select:focus-visible {
   }
 }
 
+#custom-count {
+  width: 5.5em;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--toolbar-border);
+  background: var(--control-bg);
+  color: inherit;
+}
+
+#custom-count[hidden] {
+  display: none;
+}
+
 #status {
   font-size: 0.85rem;
   opacity: 0.75;

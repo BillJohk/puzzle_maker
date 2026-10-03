@@ -2,6 +2,7 @@ import './style.css';
 import { firstImageFile } from './files';
 import { formatDuration } from './format';
 import { PuzzleGame } from './game';
+import { MAX_PIECES, MIN_PIECES, parsePieceCount, presetFor, PRESETS } from './puzzle/difficulty';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
 import { fitSize, nextPreviewMode, parsePreviewMode, PREVIEW_LABELS, type PreviewMode } from './puzzle/preview';
 import { parseSaved } from './puzzle/save';
@@ -12,6 +13,8 @@ import { clearSave, loadSave, saveImage, saveState } from './storage';
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const fileInput = document.querySelector<HTMLInputElement>('#image-input')!;
 const countSelect = document.querySelector<HTMLSelectElement>('#piece-count')!;
+const difficultySelect = document.querySelector<HTMLSelectElement>('#difficulty')!;
+const customInput = document.querySelector<HTMLInputElement>('#custom-count')!;
 const recutButton = document.querySelector<HTMLButtonElement>('#recut')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const emptyState = document.querySelector<HTMLElement>('#empty-state')!;
@@ -73,9 +76,39 @@ if (readPref(HELP_SEEN_KEY) === null) {
 }
 
 const DEFAULT_COUNT = 48;
+const CUSTOM = 'custom';
 for (const n of PIECE_COUNT_OPTIONS) {
   countSelect.add(new Option(`${n} pieces`, String(n), n === DEFAULT_COUNT, n === DEFAULT_COUNT));
 }
+countSelect.add(new Option('Custom…', CUSTOM));
+for (const p of PRESETS) {
+  difficultySelect.add(new Option(`${p.label} · ${p.pieces}${p.rotate ? ', rotated' : ''}`, p.id));
+}
+difficultySelect.add(new Option('Custom', CUSTOM));
+customInput.min = String(MIN_PIECES);
+customInput.max = String(MAX_PIECES);
+
+/** The last custom count entered, used while "Custom…" is selected. */
+let customCount = DEFAULT_COUNT;
+
+function requestedCount(): number {
+  return countSelect.value === CUSTOM ? customCount : Number(countSelect.value);
+}
+
+/** Shows `n` in the piece-count controls, switching to a custom count if it isn't a listed choice. */
+function setCount(n: number): void {
+  const listed = PIECE_COUNT_OPTIONS.some((option) => option === n);
+  if (!listed) customCount = n;
+  countSelect.value = listed ? String(n) : CUSTOM;
+  customInput.value = String(customCount);
+  customInput.hidden = listed;
+}
+
+/** Shows which preset (if any) the current count and rotation match. */
+function renderDifficulty(): void {
+  difficultySelect.value = presetFor(requestedCount(), rotateToggle.checked)?.id ?? CUSTOM;
+}
+renderDifficulty();
 
 const game = new PuzzleGame(canvas);
 
@@ -161,7 +194,7 @@ function showPuzzle({ rows, cols }: { rows: number; cols: number }): void {
 
 function cut(): void {
   if (!game.hasImage) return;
-  showPuzzle(game.generate(Number(countSelect.value), { rotate: rotateToggle.checked }));
+  showPuzzle(game.generate(requestedCount(), { rotate: rotateToggle.checked }));
   saveNow();
 }
 
@@ -237,16 +270,52 @@ async function resume(): Promise<void> {
   } catch {
     return;
   }
-  if (!PIECE_COUNT_OPTIONS.some((n) => n === state.pieceCount)) state.pieceCount = DEFAULT_COUNT;
-  countSelect.value = String(state.pieceCount);
+  setCount(state.pieceCount);
   rotateToggle.checked = state.rotate;
+  renderDifficulty();
   showPuzzle(game.restore(state));
 }
 void resume();
 
-countSelect.addEventListener('change', cut);
+countSelect.addEventListener('change', () => {
+  if (countSelect.value === CUSTOM) {
+    // Wait for a number before re-cutting.
+    customInput.value = String(customCount);
+    customInput.hidden = false;
+    customInput.focus();
+    customInput.select();
+    return;
+  }
+  customInput.hidden = true;
+  renderDifficulty();
+  cut();
+});
+customInput.addEventListener('change', () => {
+  const n = parsePieceCount(customInput.value);
+  customInput.value = String(n ?? customCount);
+  if (n === null) return;
+  customCount = n;
+  renderDifficulty();
+  cut();
+});
+customInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') customInput.blur();
+});
+difficultySelect.addEventListener('change', () => {
+  const preset = PRESETS.find((p) => p.id === difficultySelect.value);
+  if (!preset) {
+    // "Custom" just means "set the count and rotation yourself".
+    countSelect.focus();
+    return;
+  }
+  setCount(preset.pieces);
+  rotateToggle.checked = preset.rotate;
+  writePref(ROTATE_KEY, preset.rotate ? 'on' : 'off');
+  cut();
+});
 rotateToggle.addEventListener('change', () => {
   writePref(ROTATE_KEY, rotateToggle.checked ? 'on' : 'off');
+  renderDifficulty();
   cut();
 });
 recutButton.addEventListener('click', cut);
