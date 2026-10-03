@@ -52,8 +52,9 @@ export function saveState(state: unknown): Promise<void> {
   return quietly(() => run('readwrite', (store) => store.put(state, STATE_KEY))).then(() => undefined);
 }
 
-export function clearSave(): Promise<void> {
-  return quietly(() => run('readwrite', (store) => store.clear())).then(() => undefined);
+/** Drops the saved puzzle but keeps the image, so a new cut of it can still be saved and resumed. */
+export function clearState(): Promise<void> {
+  return quietly(() => run('readwrite', (store) => store.delete(STATE_KEY))).then(() => undefined);
 }
 
 /** The saved image and puzzle state, if both are present. */

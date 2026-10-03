@@ -8,7 +8,7 @@ import { fitSize, nextPreviewMode, parsePreviewMode, PREVIEW_LABELS, type Previe
 import { parseSaved } from './puzzle/save';
 import { MAX_ZOOM, MIN_ZOOM } from './puzzle/view';
 import { playChime, playClick, playTap } from './sound';
-import { clearSave, loadSave, saveImage, saveState } from './storage';
+import { clearState, loadSave, saveImage, saveState } from './storage';
 import { isLightColor, TABLE_COLORS, tableColor } from './theme';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
@@ -196,7 +196,7 @@ game.onPickUp = () => {
 };
 game.onSolved = () => {
   window.clearTimeout(saveTimer);
-  void clearSave();
+  void clearState();
   if (soundOn) playChime();
   updateStatus();
   solvedDetail.textContent = `${sizeLabel} in ${formatDuration(game.elapsedMs)}, ${movesLabel(game.moves)}`;
