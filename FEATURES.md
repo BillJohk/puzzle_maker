@@ -10,13 +10,18 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 - [x] Pieces scattered around the board outline; drag them with mouse, touch, or pen
 - [x] "New cut" re-cuts the same image with a fresh random shape
 
+## v2
+
+- [x] Snap and group: neighboring pieces snap together when dropped close and then move as a group
+- [x] Lock in place: a piece or group dropped near its correct spot snaps onto the board and locks
+- [x] Completion detection: "Solved!" shown when the last piece joins
+
 ## Backlog
 
 Rough priority order — top items make the game feel complete.
 
-- [ ] Lock in place: a piece dropped near its correct spot snaps onto the board and locks
-- [ ] Completion detection and a "solved!" message with time taken
-- [ ] Snap and group: neighboring pieces snap together when close and then move as a group
+- [ ] Solved celebration: time taken, a small animation, and hiding piece outlines
+- [ ] Snap feedback: a subtle click sound or flash when pieces join
 - [ ] Piece rotation: pieces start rotated; player rotates them (e.g. right-click / double-tap / key)
 - [ ] Save progress: persist the current puzzle locally and resume later
 - [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture

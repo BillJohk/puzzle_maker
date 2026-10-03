@@ -1,17 +1,14 @@
 import { chooseGrid, type Grid } from './puzzle/grid';
 import { mulberry32 } from './puzzle/rng';
 import { createLayout, pieceSides, piecePadding, tracePiece, type PuzzleLayout } from './puzzle/shape';
+import { isSolved, settle, type SnapGeometry, type SnapPiece } from './puzzle/snap';
 
-interface Piece {
-  row: number;
-  col: number;
+/** Position (x, y) is the canvas position (CSS px) of the piece's cell top-left corner. */
+interface Piece extends SnapPiece {
   /** Outline in board coordinates. */
   path: Path2D;
   /** Pre-rendered image of the piece, including `pad` on every side. */
   sprite: HTMLCanvasElement;
-  /** Canvas position (CSS px) of the piece's cell top-left corner. */
-  x: number;
-  y: number;
 }
 
 interface Rect {
@@ -22,7 +19,9 @@ interface Rect {
 }
 
 interface Drag {
+  /** The piece under the pointer; the rest of its group follows it. */
   piece: Piece;
+  members: Piece[];
   pointerId: number;
   dx: number;
   dy: number;
@@ -31,6 +30,8 @@ interface Drag {
 /** Fraction of the play area the assembled puzzle may occupy; the rest holds scattered pieces. */
 const BOARD_MAX_W = 0.6;
 const BOARD_MAX_H = 0.7;
+/** Snap distance as a fraction of the cell's short side. */
+const SNAP_TOLERANCE = 0.25;
 
 export class PuzzleGame {
   private readonly ctx: CanvasRenderingContext2D;
@@ -45,6 +46,9 @@ export class PuzzleGame {
   private height = 0;
   private dpr = 1;
   private frame = 0;
+
+  /** Called once when the last piece snaps into place. */
+  onSolved: (() => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -103,7 +107,8 @@ export class PuzzleGame {
         const path = new Path2D();
         tracePiece(pieceSides(layout, r, c), path);
         const { x, y } = this.scatterPosition(rand);
-        pieces.push({ row: r, col: c, path, sprite: this.renderSprite(scaled, path, r, c), x, y });
+        const sprite = this.renderSprite(scaled, path, r, c);
+        pieces.push({ row: r, col: c, x, y, group: r * cols + c, locked: false, path, sprite });
       }
     }
     // Shuffle the stacking order so neighbors aren't layered predictably.
@@ -162,17 +167,45 @@ export class PuzzleGame {
     this.dpr = window.devicePixelRatio || 1;
     this.canvas.width = Math.round(rect.width * this.dpr);
     this.canvas.height = Math.round(rect.height * this.dpr);
-    // Keep every piece grabbable if the window shrank.
+    // Keep every group grabbable if the window shrank.
     if (this.layout) {
-      for (const p of this.pieces) this.clampToView(p);
+      const seen = new Set<number>();
+      for (const p of this.pieces) {
+        if (p.locked || seen.has(p.group)) continue;
+        seen.add(p.group);
+        const members = this.pieces.filter((m) => m.group === p.group);
+        const [x, y] = this.clampToView(p.x, p.y);
+        this.moveGroup(members, x - p.x, y - p.y);
+      }
     }
     this.draw();
   }
 
-  private clampToView(p: Piece): void {
+  /** Clamps a proposed piece position so at least half of the piece stays on screen. */
+  private clampToView(x: number, y: number): [number, number] {
     const { cellW, cellH } = this.layout!;
-    p.x = Math.min(Math.max(p.x, -cellW / 2), this.width - cellW / 2);
-    p.y = Math.min(Math.max(p.y, -cellH / 2), this.height - cellH / 2);
+    return [
+      Math.min(Math.max(x, -cellW / 2), this.width - cellW / 2),
+      Math.min(Math.max(y, -cellH / 2), this.height - cellH / 2),
+    ];
+  }
+
+  private moveGroup(members: Piece[], dx: number, dy: number): void {
+    for (const m of members) {
+      m.x += dx;
+      m.y += dy;
+    }
+  }
+
+  private snapGeometry(): SnapGeometry {
+    const { cellW, cellH } = this.layout!;
+    return {
+      cellW,
+      cellH,
+      boardX: this.board.x,
+      boardY: this.board.y,
+      tolerance: Math.max(8, SNAP_TOLERANCE * Math.min(cellW, cellH)),
+    };
   }
 
   private requestDraw(): void {
@@ -200,16 +233,21 @@ export class PuzzleGame {
 
     const { cellW, cellH } = this.layout;
     const pad = this.pad;
-    for (const p of this.pieces) {
-      const dragging = this.drag?.piece === p;
-      if (dragging) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 16;
-        ctx.shadowOffsetY = 6;
-      }
+    const drawPiece = (p: Piece) =>
       ctx.drawImage(p.sprite, p.x - pad, p.y - pad, cellW + 2 * pad, cellH + 2 * pad);
-      if (dragging) ctx.restore();
+    const dragged = new Set(this.drag?.members);
+    for (const p of this.pieces) if (!dragged.has(p)) drawPiece(p);
+
+    // Dragged group (always on top): shadow pass first, then a clean pass so
+    // one member's shadow never darkens another.
+    if (dragged.size > 0) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 6;
+      dragged.forEach(drawPiece);
+      ctx.restore();
+      dragged.forEach(drawPiece);
     }
   }
 
@@ -224,6 +262,7 @@ export class PuzzleGame {
     const pad = this.pad;
     for (let i = this.pieces.length - 1; i >= 0; i--) {
       const p = this.pieces[i];
+      if (p.locked) continue;
       if (x < p.x - pad || x > p.x + cellW + pad || y < p.y - pad || y > p.y + cellH + pad) continue;
       const lx = x - p.x + p.col * cellW;
       const ly = y - p.y + p.row * cellH;
@@ -237,9 +276,10 @@ export class PuzzleGame {
     const { x, y } = this.pointerPos(e);
     const piece = this.pieceAt(x, y);
     if (!piece) return;
-    this.pieces.splice(this.pieces.indexOf(piece), 1);
-    this.pieces.push(piece);
-    this.drag = { piece, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y };
+    // Lift the whole group to the top, keeping its internal stacking order.
+    const members = this.pieces.filter((p) => p.group === piece.group);
+    this.pieces = [...this.pieces.filter((p) => p.group !== piece.group), ...members];
+    this.drag = { piece, members, pointerId: e.pointerId, dx: x - piece.x, dy: y - piece.y };
     this.canvas.setPointerCapture(e.pointerId);
     this.canvas.classList.add('dragging');
     this.requestDraw();
@@ -249,16 +289,23 @@ export class PuzzleGame {
     if (this.drag?.pointerId !== e.pointerId) return;
     const { x, y } = this.pointerPos(e);
     const p = this.drag.piece;
-    p.x = x - this.drag.dx;
-    p.y = y - this.drag.dy;
-    this.clampToView(p);
+    const [nx, ny] = this.clampToView(x - this.drag.dx, y - this.drag.dy);
+    this.moveGroup(this.drag.members, nx - p.x, ny - p.y);
     this.requestDraw();
   };
 
   private onPointerUp = (e: PointerEvent): void => {
     if (this.drag?.pointerId !== e.pointerId) return;
+    const { piece } = this.drag;
     this.drag = null;
     this.canvas.classList.remove('dragging');
+    const wasSolved = isSolved(this.pieces);
+    const { snapped } = settle(this.pieces, piece.group, this.snapGeometry());
+    if (snapped) {
+      // Locked pieces form the bottom layer so loose pieces always stay on top.
+      this.pieces = [...this.pieces.filter((p) => p.locked), ...this.pieces.filter((p) => !p.locked)];
+      if (!wasSolved && isSolved(this.pieces)) this.onSolved?.();
+    }
     this.requestDraw();
   };
 }

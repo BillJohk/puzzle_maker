@@ -15,6 +15,9 @@ for (const n of PIECE_COUNT_OPTIONS) {
 }
 
 const game = new PuzzleGame(canvas);
+game.onSolved = () => {
+  status.textContent = `Solved! ${status.textContent}`;
+};
 
 function cut(): void {
   if (!game.hasImage) return;
