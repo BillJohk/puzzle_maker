@@ -20,6 +20,7 @@ const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
+const edgesButton = document.querySelector<HTMLButtonElement>('#edges')!;
 const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
 const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
 
@@ -166,6 +167,7 @@ function useImage(bitmap: ImageBitmap): void {
   drawThumbnail(bitmap);
   emptyState.hidden = true;
   recutButton.disabled = false;
+  edgesButton.disabled = false;
 }
 
 fileInput.addEventListener('change', async () => {
@@ -208,4 +210,5 @@ rotateToggle.addEventListener('change', () => {
   cut();
 });
 recutButton.addEventListener('click', cut);
+edgesButton.addEventListener('click', () => game.gatherEdges());
 playAgainButton.addEventListener('click', cut);

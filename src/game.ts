@@ -1,3 +1,4 @@
+import { chooseArea, isEdgePiece, overlaps, packInArea, stripsAround, type Area } from './puzzle/arrange';
 import { chooseGrid, type Grid } from './puzzle/grid';
 import { mulberry32 } from './puzzle/rng';
 import { fromSaved, toSaved, type SavedPuzzle } from './puzzle/save';
@@ -245,6 +246,44 @@ export class PuzzleGame {
     return grid;
   }
 
+  /**
+   * Gathers the loose edge pieces (ones not yet joined to anything) into the
+   * roomiest strip of table beside the board, moving loose inner pieces out
+   * of that strip. Returns how many edge pieces were moved.
+   */
+  gatherEdges(): number {
+    if (!this.layout || this.solvedState || this.drag || this.glide) return 0;
+    const { rows, cols, cellW, cellH } = this.layout;
+    const groupSize = new Map<number, number>();
+    for (const p of this.pieces) groupSize.set(p.group, (groupSize.get(p.group) ?? 0) + 1);
+    const edges = this.pieces.filter(
+      (p) => !p.locked && groupSize.get(p.group) === 1 && isEdgePiece(p.row, p.col, rows, cols),
+    );
+    if (edges.length === 0) return 0;
+
+    // Turned pieces on non-square cells are taller than wide, so leave room either way.
+    const span = this.rotationEnabled ? Math.max(cellW, cellH) : 0;
+    const item = { w: (span || cellW) + 2 * this.pad, h: (span || cellH) + 2 * this.pad };
+    const area = chooseArea(stripsAround({ w: this.width, h: this.height }, this.board), edges.length, item);
+    const rand = Math.random;
+    for (const p of this.pieces) {
+      if (p.locked || groupSize.get(p.group) !== 1 || isEdgePiece(p.row, p.col, rows, cols)) continue;
+      if (overlaps({ x: p.x, y: p.y, w: cellW, h: cellH }, area)) Object.assign(p, this.scatterPosition(rand, [area]));
+    }
+    packInArea(edges.length, area, item).forEach((pos, i) => {
+      const [x, y] = this.clampToView(pos.x + (item.w - cellW) / 2, pos.y + (item.h - cellH) / 2);
+      edges[i].x = x;
+      edges[i].y = y;
+    });
+    // Gathered pieces go on top so none hide under the rest.
+    const gathered = new Set(edges);
+    this.pieces = [...this.pieces.filter((p) => !gathered.has(p)), ...edges];
+    this.lastTap = null;
+    this.requestDraw();
+    this.onProgress?.();
+    return edges.length;
+  }
+
   private boardFrame() {
     const { cellW, cellH } = this.layout!;
     return { boardX: this.board.x, boardY: this.board.y, cellW, cellH };
@@ -272,19 +311,18 @@ export class PuzzleGame {
     return sprite;
   }
 
-  /** Random cell position, preferring spots that don't cover the board. */
-  private scatterPosition(rand: () => number): { x: number; y: number } {
+  /** Random cell position, preferring spots that don't cover the board (or the other areas given). */
+  private scatterPosition(rand: () => number, avoid: Area[] = []): { x: number; y: number } {
     const { cellW, cellH } = this.layout!;
     const margin = this.pad;
     const maxX = Math.max(margin, this.width - cellW - margin);
     const maxY = Math.max(margin, this.height - cellH - margin);
+    const keepOut = [this.board, ...avoid];
     let pos = { x: margin, y: margin };
     for (let attempt = 0; attempt < 30; attempt++) {
       pos = { x: margin + rand() * (maxX - margin), y: margin + rand() * (maxY - margin) };
-      const b = this.board;
-      const overlapsBoard =
-        pos.x + cellW > b.x && pos.x < b.x + b.w && pos.y + cellH > b.y && pos.y < b.y + b.h;
-      if (!overlapsBoard) break;
+      const box = { x: pos.x, y: pos.y, w: cellW, h: cellH };
+      if (!keepOut.some((a) => overlaps(box, a))) break;
     }
     return pos;
   }
