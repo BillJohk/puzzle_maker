@@ -89,6 +89,8 @@ interface FinishGlide {
 /** Fraction of the play area the assembled puzzle may occupy; the rest holds scattered pieces. */
 const BOARD_MAX_W = 0.6;
 const BOARD_MAX_H = 0.7;
+/** How long the table size must hold still before the board is re-fitted to it. */
+const REFIT_DELAY_MS = 250;
 /** Snap distance as a fraction of the cell's short side. */
 const SNAP_TOLERANCE = 0.25;
 const GLIDE_MS = 700;
@@ -119,6 +121,9 @@ export class PuzzleGame {
   private drag: Drag | null = null;
   private width = 0;
   private height = 0;
+  /** Table size the board was laid out for; a new size re-fits it (e.g. a phone turning). */
+  private laidOutFor = { w: 0, h: 0 };
+  private refitTimer = 0;
   private dpr = 1;
   /** Sprite pixels per CSS pixel: the device ratio, raised so pieces stay sharp when zoomed. */
   private res = 1;
@@ -252,6 +257,7 @@ export class PuzzleGame {
     );
     const boardW = image.width * scale;
     const boardH = image.height * scale;
+    this.laidOutFor = { w: this.width, h: this.height };
     this.board = {
       x: (this.width - boardW) / 2,
       y: (this.height - boardH) / 2,
@@ -451,7 +457,30 @@ export class PuzzleGame {
     this.keepGroupsInView();
     this.view = clampView(this.view, this.tableSize());
     this.draw();
+    const { w, h } = this.laidOutFor;
+    if (this.layout && (Math.abs(this.width - w) > 1 || Math.abs(this.height - h) > 1)) {
+      window.clearTimeout(this.refitTimer);
+      this.refitTimer = window.setTimeout(this.refit, REFIT_DELAY_MS);
+    }
   }
+
+  /**
+   * Lays the board out again for the current table size, keeping every piece
+   * where it was relative to the board, the clock and the move count.
+   */
+  private refit = (): void => {
+    // Wait until the player lets go; a finished puzzle stays as it is.
+    if (this.drag || this.pan || this.pinch || this.touches.size > 0) {
+      this.refitTimer = window.setTimeout(this.refit, REFIT_DELAY_MS);
+      return;
+    }
+    const saved = this.snapshot();
+    if (!saved || this.glide) return;
+    const running = this.timerStart !== null;
+    this.restore(saved);
+    if (running) this.timerStart = performance.now();
+    this.onProgress?.();
+  };
 
   private keepGroupsInView(): void {
     if (!this.layout) return;
