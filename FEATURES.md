@@ -20,12 +20,14 @@ Upload an image and play it as a jigsaw puzzle in the browser. Everything runs l
 
 - [x] Solved celebration: the finished picture glides onto the board, outlines fade away, a shine sweeps across, and a banner shows time and moves
 - [x] Timer and move counter in the toolbar (clock starts on the first grab)
+- [x] Snap feedback: a brief glow and a wooden click when pieces join (lower click when locking to the board); sound toggle remembered
 
 ## Backlog
 
 Rough priority order — top items make the game feel complete.
 
-- [ ] Snap feedback: a subtle click sound or flash when pieces join
+- [ ] Solved chime: a short, pleasant chord when the puzzle is completed
+- [ ] Pick-up sound: a soft tap when grabbing a piece or group
 - [ ] Piece rotation: pieces start rotated; player rotates them (e.g. right-click / double-tap / key)
 - [ ] Save progress: persist the current puzzle locally and resume later
 - [ ] Preview: toggle a ghost image on the board or a thumbnail of the full picture

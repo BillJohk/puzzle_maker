@@ -45,6 +45,7 @@ const SNAP_TOLERANCE = 0.25;
 const GLIDE_MS = 700;
 const REVEAL_MS = 400;
 const SHINE_MS = 1400;
+const FLASH_MS = 450;
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -69,6 +70,8 @@ export class PuzzleGame {
   private moveCount = 0;
   private solvedState = false;
   private glide: FinishGlide | null = null;
+  /** Pieces that just snapped, highlighted briefly. */
+  private flash: { members: Piece[]; start: number } | null = null;
   /** When the solved picture was revealed (performance.now()), for the shine animation. */
   private revealedAt: number | null = null;
 
@@ -76,6 +79,8 @@ export class PuzzleGame {
   onSolved: (() => void) | null = null;
   /** Called after each move, so the UI can refresh its counters. */
   onProgress: (() => void) | null = null;
+  /** Called when a drop snaps pieces together ('join') or onto the board ('lock'). */
+  onSnap: ((kind: 'join' | 'lock') => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -116,6 +121,7 @@ export class PuzzleGame {
     if (!image) throw new Error('No image loaded');
     this.drag = null;
     this.glide = null;
+    this.flash = null;
     this.revealedAt = null;
     this.solvedState = false;
     this.timerStart = null;
@@ -299,10 +305,31 @@ export class PuzzleGame {
       dragged.forEach(drawPiece);
     }
 
+    if (this.flash) this.drawFlash(now - this.flash.start);
     if (this.revealedAt !== null) this.drawReveal(now - this.revealedAt);
-    if (this.glide || (this.revealedAt !== null && now - this.revealedAt < SHINE_MS)) {
+    if (this.glide || this.flash || (this.revealedAt !== null && now - this.revealedAt < SHINE_MS)) {
       this.requestDraw();
     }
+  }
+
+  /** Fading glow around the outlines of pieces that just snapped. */
+  private drawFlash(t: number): void {
+    if (t >= FLASH_MS) {
+      this.flash = null;
+      return;
+    }
+    const ctx = this.ctx;
+    const { cellW, cellH } = this.layout!;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 244, 200, ${0.9 * (1 - t / FLASH_MS)})`;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = 'rgba(255, 236, 160, 0.9)';
+    ctx.shadowBlur = 10;
+    for (const p of this.flash!.members) {
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, this.dpr * (p.x - p.col * cellW), this.dpr * (p.y - p.row * cellH));
+      ctx.stroke(p.path);
+    }
+    ctx.restore();
   }
 
   /** Fades in the outline-free picture over the board, then sweeps a shine across it. */
@@ -425,12 +452,14 @@ export class PuzzleGame {
 
   private onPointerUp = (e: PointerEvent): void => {
     if (this.drag?.pointerId !== e.pointerId) return;
-    const { piece, moved } = this.drag;
+    const { piece, members, moved } = this.drag;
     this.drag = null;
     this.canvas.classList.remove('dragging');
     if (moved) this.moveCount++;
     const { snapped } = settle(this.pieces, piece.group, this.snapGeometry());
     if (snapped) {
+      this.flash = { members, start: performance.now() };
+      this.onSnap?.(piece.locked ? 'lock' : 'join');
       // Locked pieces form the bottom layer so loose pieces always stay on top.
       this.pieces = [...this.pieces.filter((p) => p.locked), ...this.pieces.filter((p) => !p.locked)];
       if (isSolved(this.pieces)) this.finish();
