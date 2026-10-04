@@ -797,13 +797,13 @@ export class PuzzleGame {
     this.onProgress?.();
   }
 
-  /** Rotates a loose piece in place (right-click). */
-  private rotatePieceAt(x: number, y: number): void {
+  /** Rotates a loose piece in place (right-click; Shift+right-click turns it counterclockwise). */
+  private rotatePieceAt(x: number, y: number, turns: 1 | -1 = 1): void {
     if (!this.layout || !this.rotationEnabled || this.solvedState || this.drag) return;
     const piece = this.pieceAt(x, y);
     if (!piece) return;
     this.timerStart ??= performance.now();
-    this.rotateAt(piece.group, x, y);
+    this.rotateAt(piece.group, x, y, turns);
     this.moveCount++;
     this.settleGroup(piece, this.pieces.filter((p) => p.group === piece.group));
   }
@@ -811,7 +811,7 @@ export class PuzzleGame {
   private onContextMenu = (e: MouseEvent): void => {
     e.preventDefault();
     const { x, y } = this.pointerPos(e);
-    this.rotatePieceAt(x, y);
+    this.rotatePieceAt(x, y, e.shiftKey ? -1 : 1);
   };
 
   private onWheel = (e: WheelEvent): void => {

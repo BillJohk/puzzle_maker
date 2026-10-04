@@ -38,7 +38,7 @@ Rough priority order — top items make the game feel complete.
 - [x] Shuffle / re-scatter pieces without re-cutting: "Shuffle" moves every loose piece and group (kept together) to a random spot off the board and restacks them; locked pieces, time and moves are untouched
 - [x] Custom piece counts and difficulty presets: a Difficulty menu (Easy 24, Medium 48, Hard 150 rotated, Expert 300 rotated) sets count and rotation together and shows "Custom" otherwise; "Custom…" in the piece-count menu takes any count from 4 to 500 (zoom keeps the small pieces playable)
 - [x] Background color choice for the table: a toolbar menu of table colors (green felt, which follows light/dark mode, plus navy, wine, charcoal, walnut, sand and paper), remembered; light colors switch the table text and board outline to dark so they stay readable
-- [x] Counter-rotation: Shift+R / Shift+Space while dragging turns a piece counterclockwise
+- [x] Counter-rotation: Shift+R / Shift+Space while dragging, or Shift+right-click, turns a piece counterclockwise
 - [x] Large preview: click the corner thumbnail to view the whole picture large; click again (or Esc) to close
 - [x] Sample puzzle: a built-in photo (Seattle skyline, metadata stripped) from the empty-state button or the link in How to play
 - [x] Collapsible menu bar: the ▴ / ▾ button folds the toolbar down to just the status line for more table room on phones; remembered
