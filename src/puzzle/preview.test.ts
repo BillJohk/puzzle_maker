@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitSize, nextPreviewMode, parsePreviewMode } from './preview';
-
-describe('nextPreviewMode', () => {
-  it('cycles off → ghost → thumbnail → off', () => {
-    expect(nextPreviewMode('off')).toBe('ghost');
-    expect(nextPreviewMode('ghost')).toBe('thumbnail');
-    expect(nextPreviewMode('thumbnail')).toBe('off');
-  });
-});
+import { fitSize, parsePreviewMode } from './preview';
 
 describe('parsePreviewMode', () => {
   it('accepts known modes and falls back to the thumbnail', () => {

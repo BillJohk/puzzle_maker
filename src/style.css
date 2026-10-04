@@ -169,6 +169,33 @@ select:focus-visible {
   display: none;
 }
 
+#options-panel {
+  inset: auto;
+  margin: 0;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  padding: 12px 14px;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--toolbar-border);
+  border-radius: 10px;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+#options-panel:popover-open {
+  display: flex;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
 #status {
   font-size: 0.85rem;
   opacity: 0.75;

@@ -2,15 +2,10 @@ export const PREVIEW_MODES = ['off', 'ghost', 'thumbnail'] as const;
 export type PreviewMode = (typeof PREVIEW_MODES)[number];
 
 export const PREVIEW_LABELS: Record<PreviewMode, string> = {
-  off: 'Preview off',
-  ghost: 'Preview: ghost',
-  thumbnail: 'Preview: picture',
+  off: 'Off',
+  ghost: 'Ghost on board',
+  thumbnail: 'Corner picture',
 };
-
-/** The mode after `mode` when cycling with the preview button. */
-export function nextPreviewMode(mode: PreviewMode): PreviewMode {
-  return PREVIEW_MODES[(PREVIEW_MODES.indexOf(mode) + 1) % PREVIEW_MODES.length];
-}
 
 export function parsePreviewMode(value: string | null): PreviewMode {
   return PREVIEW_MODES.find((m) => m === value) ?? 'thumbnail';

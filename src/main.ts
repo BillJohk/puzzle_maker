@@ -4,7 +4,7 @@ import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { MAX_PIECES, MIN_PIECES, parsePieceCount, presetFor, PRESETS } from './puzzle/difficulty';
 import { PIECE_COUNT_OPTIONS } from './puzzle/grid';
-import { fitSize, nextPreviewMode, parsePreviewMode, PREVIEW_LABELS, type PreviewMode } from './puzzle/preview';
+import { fitSize, parsePreviewMode, PREVIEW_LABELS, PREVIEW_MODES, type PreviewMode } from './puzzle/preview';
 import { parseSaved } from './puzzle/save';
 import { MAX_ZOOM, MIN_ZOOM } from './puzzle/view';
 import { playChime, playClick, playTap } from './sound';
@@ -26,7 +26,7 @@ const helpSampleButton = document.querySelector<HTMLButtonElement>('#help-sample
 const solvedBanner = document.querySelector<HTMLElement>('#solved-banner')!;
 const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
-const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
+const soundToggle = document.querySelector<HTMLInputElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
 const edgesFirstToggle = document.querySelector<HTMLInputElement>('#edges-first')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
@@ -37,7 +37,9 @@ const zoomOutButton = document.querySelector<HTMLButtonElement>('#zoom-out')!;
 const zoomInButton = document.querySelector<HTMLButtonElement>('#zoom-in')!;
 const zoomResetButton = document.querySelector<HTMLButtonElement>('#zoom-reset')!;
 const tableColorSelect = document.querySelector<HTMLSelectElement>('#table-color')!;
-const previewButton = document.querySelector<HTMLButtonElement>('#preview')!;
+const previewSelect = document.querySelector<HTMLSelectElement>('#preview')!;
+const optionsButton = document.querySelector<HTMLButtonElement>('#options')!;
+const optionsPanel = document.querySelector<HTMLElement>('#options-panel')!;
 const thumbnail = document.querySelector<HTMLCanvasElement>('#thumbnail')!;
 const pictureDialog = document.querySelector<HTMLDialogElement>('#picture-dialog')!;
 const pictureLarge = document.querySelector<HTMLCanvasElement>('#picture-large')!;
@@ -65,17 +67,26 @@ function writePref(key: string, value: string): void {
 }
 
 let soundOn = readPref(SOUND_KEY) !== 'off';
-function renderSoundButton(): void {
-  soundButton.setAttribute('aria-pressed', String(soundOn));
-  soundButton.textContent = soundOn ? 'Sound on' : 'Sound off';
-}
-renderSoundButton();
+soundToggle.checked = soundOn;
 rotateToggle.checked = readPref(ROTATE_KEY) === 'on';
-soundButton.addEventListener('click', () => {
-  soundOn = !soundOn;
+soundToggle.addEventListener('change', () => {
+  soundOn = soundToggle.checked;
   writePref(SOUND_KEY, soundOn ? 'on' : 'off');
-  renderSoundButton();
 });
+
+// The Options panel opens just below its button, kept inside the window.
+const PANEL_MARGIN = 8;
+optionsPanel.addEventListener('beforetoggle', (e) => {
+  const open = (e as ToggleEvent).newState === 'open';
+  optionsButton.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  const r = optionsButton.getBoundingClientRect();
+  const width = Math.min(optionsPanel.offsetWidth || 240, window.innerWidth - 2 * PANEL_MARGIN);
+  const left = Math.max(PANEL_MARGIN, Math.min(r.left, window.innerWidth - width - PANEL_MARGIN));
+  optionsPanel.style.left = `${left}px`;
+  optionsPanel.style.top = `${r.bottom + 6}px`;
+});
+window.addEventListener('resize', () => optionsPanel.hidePopover());
 
 helpButton.addEventListener('click', () => helpDialog.showModal());
 // Clicking the backdrop (outside the panel) closes it too.
@@ -166,7 +177,7 @@ const THUMB_MAX_W = 220;
 const THUMB_MAX_H = 160;
 let previewMode = parsePreviewMode(readPref(PREVIEW_KEY));
 function renderPreview(): void {
-  previewButton.textContent = PREVIEW_LABELS[previewMode];
+  previewSelect.value = previewMode;
   game.showGhost = previewMode === 'ghost';
   thumbnail.hidden = previewMode !== 'thumbnail' || !game.hasImage || game.solved;
 }
@@ -175,7 +186,8 @@ function setPreview(mode: PreviewMode): void {
   writePref(PREVIEW_KEY, mode);
   renderPreview();
 }
-previewButton.addEventListener('click', () => setPreview(nextPreviewMode(previewMode)));
+for (const m of PREVIEW_MODES) previewSelect.add(new Option(PREVIEW_LABELS[m], m));
+previewSelect.addEventListener('change', () => setPreview(parsePreviewMode(previewSelect.value)));
 renderPreview();
 
 /** Draws `image` into `canvas`, scaled to fit maxW × maxH CSS px. */

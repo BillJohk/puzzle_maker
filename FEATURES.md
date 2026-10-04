@@ -44,3 +44,4 @@ Rough priority order — top items make the game feel complete.
 - [x] Collapsible menu bar: the ▴ / ▾ button folds the toolbar down to just the status line for more table room on phones; remembered
 - [x] Re-fit on resize: when the table changes size (a phone turning, a window resized, the menu folded), the board is laid out again for the new size, keeping pieces in place relative to the board along with the clock and moves
 - [x] Edges first (optional toggle, off by default, remembered): only border pieces, or groups that include one, lock onto the board by themselves; an inner piece dropped on its spot stays loose until it joins a matching piece. Takes effect immediately, without re-cutting
+- [x] Options menu: Edges first, Sound, Preview (now a dropdown: off / ghost on board / corner picture) and Table color moved from the toolbar into an "Options ▾" panel that drops down under its button (click outside or Esc to close), so the toolbar fits on one line again

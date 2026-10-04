@@ -20,10 +20,6 @@
         <input id="rotate" type="checkbox" />
         Rotate pieces
       </label>
-      <label class="toggle" title="Only edge pieces lock onto the board by themselves. An inner piece snaps in only next to a matching piece.">
-        <input id="edges-first" type="checkbox" />
-        Edges first
-      </label>
       <button id="recut" class="button" type="button" disabled>New cut</button>
       <button id="shuffle" class="button" type="button" disabled>Shuffle</button>
       <button id="edges" class="button" type="button" disabled>Gather edges</button>
@@ -32,12 +28,28 @@
         <button id="zoom-reset" class="button" type="button" title="Reset zoom" disabled>100%</button>
         <button id="zoom-in" class="button" type="button" aria-label="Zoom in" disabled>+</button>
       </span>
-      <button id="preview" class="button" type="button">Preview: picture</button>
-      <select id="table-color" aria-label="Table color"></select>
-      <button id="sound" class="button" type="button" aria-pressed="true">Sound on</button>
+      <button id="options" class="button" type="button" popovertarget="options-panel">Options ▾</button>
       <button id="help" class="button" type="button" aria-haspopup="dialog">How to play</button>
       <span id="status"></span>
     </header>
+    <div id="options-panel" popover aria-label="Options">
+      <label class="toggle" title="Only edge pieces lock onto the board by themselves. An inner piece snaps in only next to a matching piece.">
+        <input id="edges-first" type="checkbox" />
+        Edges first
+      </label>
+      <label class="toggle">
+        <input id="sound" type="checkbox" checked />
+        Sound
+      </label>
+      <label class="option">
+        Preview
+        <select id="preview"></select>
+      </label>
+      <label class="option">
+        Table
+        <select id="table-color" aria-label="Table color"></select>
+      </label>
+    </div>
     <main class="table">
       <canvas id="board"></canvas>
       <canvas id="thumbnail" hidden aria-hidden="true" title="Click to enlarge"></canvas>
@@ -67,7 +79,8 @@
           <li><strong>Zoom:</strong> scroll the mouse wheel over the table, pinch with two fingers, or use the − / + buttons; click the percentage to zoom back out. While zoomed in, drag an empty spot to look around.</li>
           <li><strong>Shuffle:</strong> scatters the loose pieces and groups to new spots around the board, without re-cutting.</li>
           <li><strong>Gather edges:</strong> moves the loose border pieces together beside the board.</li>
-          <li><strong>Preview:</strong> cycles between no preview, a faint ghost of the picture on the board, and a small copy of the whole picture in the corner (click it for a large view; click again to close).</li>
+          <li><strong>Options:</strong> the Options menu holds Edges first, Sound, Preview and the table color.</li>
+          <li><strong>Preview</strong> (in Options): choose no preview, a faint ghost of the picture on the board, or a small copy of the whole picture in the corner (click it for a large view; click again to close).</li>
           <li><strong>New cut:</strong> re-cuts the same image with fresh piece shapes.</li>
           <li><strong>Menu:</strong> the ▴ button at the top left folds the menu bar away to leave more room for the table (handy on phones); ▾ brings it back.</li>
           <li><strong>Saving:</strong> your puzzle is saved in this browser as you play, and comes back when you return.</li>
