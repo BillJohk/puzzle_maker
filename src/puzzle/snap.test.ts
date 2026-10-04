@@ -54,6 +54,46 @@ describe('findSnap', () => {
   });
 });
 
+describe('edges first', () => {
+  const strict: SnapGeometry = { ...geo, edgesFirst: { rows: 3, cols: 4 } };
+  // Exactly on its board spot.
+  const onBoard = (row: number, col: number, group: number) => piece(row, col, 1000 + col * 100, 1000 + row * 80, group);
+
+  it('does not lock an inner piece onto the board by itself', () => {
+    expect(findSnap([onBoard(1, 1, 0)], 0, strict)).toBeNull();
+  });
+
+  it('still locks an inner piece when the option is off', () => {
+    expect(findSnap([onBoard(1, 1, 0)], 0, geo)?.target).toEqual({ kind: 'board' });
+  });
+
+  it('locks a border piece onto the board', () => {
+    for (const [r, c] of [[0, 2], [2, 1], [1, 0], [1, 3]]) {
+      expect(findSnap([onBoard(r, c, 0)], 0, strict)?.target).toEqual({ kind: 'board' });
+    }
+  });
+
+  it('does not lock a group of inner pieces', () => {
+    expect(findSnap([onBoard(1, 1, 0), onBoard(1, 2, 0)], 0, strict)).toBeNull();
+  });
+
+  it('locks a group holding a border piece', () => {
+    expect(findSnap([onBoard(1, 1, 0), onBoard(0, 1, 0)], 0, strict)?.target).toEqual({ kind: 'board' });
+  });
+
+  it('lets an inner piece join a locked neighbor and lock with it', () => {
+    const pieces = [onBoard(0, 1, 0), piece(1, 1, 1104, 1083, 1)];
+    pieces[0].locked = true;
+    expect(settle(pieces, 1, strict)).toEqual({ group: 0, snapped: true });
+    expect(pieces[1]).toMatchObject({ x: 1100, y: 1080, locked: true });
+  });
+
+  it('still joins loose inner pieces together', () => {
+    const pieces = [piece(1, 1, 200, 200, 0), piece(1, 2, 304, 200, 1)];
+    expect(findSnap(pieces, 1, strict)?.target).toEqual({ kind: 'group', group: 0 });
+  });
+});
+
 describe('applySnap', () => {
   it('moves the whole group and merges it into the target', () => {
     const pieces = [piece(0, 0, 200, 200, 0), piece(0, 1, 305, 196, 1), piece(1, 1, 305, 276, 1)];

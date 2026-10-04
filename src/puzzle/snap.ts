@@ -1,3 +1,5 @@
+import { isEdgePiece } from './arrange';
+
 /**
  * The parts of a piece the snapping rules care about. (x, y) is the top-left
  * corner of the piece's cell box before rotation; the piece turns about the
@@ -24,6 +26,11 @@ export interface SnapGeometry {
   boardY: number;
   /** Maximum distance (px) a group may be off its target and still snap. */
   tolerance: number;
+  /**
+   * When set, only groups holding a border piece lock onto the board by
+   * themselves; inner pieces must join a matching neighbor instead.
+   */
+  edgesFirst?: { rows: number; cols: number };
 }
 
 export type SnapTarget = { kind: 'board' } | { kind: 'group'; group: number };
@@ -59,8 +66,9 @@ export function rotateVector(x: number, y: number, quarterTurns: number): [numbe
 
 /**
  * Finds the closest snap for `group` within tolerance: either onto its correct
- * board position (only when upright), or onto an edge-adjacent piece from
- * another group with the same rotation.
+ * board position (only when upright and, with `edgesFirst`, holding a border
+ * piece), or onto an edge-adjacent piece from another group with the same
+ * rotation.
  */
 export function findSnap(pieces: readonly SnapPiece[], group: number, geo: SnapGeometry): Snap | null {
   const members = pieces.filter((p) => p.group === group);
@@ -79,7 +87,8 @@ export function findSnap(pieces: readonly SnapPiece[], group: number, geo: SnapG
 
   // Every member shares one offset from its board position, so checking one is enough.
   const m0 = members[0];
-  if (m0.rotation === 0) {
+  const ef = geo.edgesFirst;
+  if (m0.rotation === 0 && (!ef || members.some((m) => isEdgePiece(m.row, m.col, ef.rows, ef.cols)))) {
     consider(geo.boardX + m0.col * geo.cellW - m0.x, geo.boardY + m0.row * geo.cellH - m0.y, {
       kind: 'board',
     });

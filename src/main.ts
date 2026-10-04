@@ -28,6 +28,7 @@ const solvedDetail = document.querySelector<HTMLElement>('#solved-detail')!;
 const playAgainButton = document.querySelector<HTMLButtonElement>('#play-again')!;
 const soundButton = document.querySelector<HTMLButtonElement>('#sound')!;
 const rotateToggle = document.querySelector<HTMLInputElement>('#rotate')!;
+const edgesFirstToggle = document.querySelector<HTMLInputElement>('#edges-first')!;
 const helpButton = document.querySelector<HTMLButtonElement>('#help')!;
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog')!;
 const shuffleButton = document.querySelector<HTMLButtonElement>('#shuffle')!;
@@ -43,6 +44,7 @@ const pictureLarge = document.querySelector<HTMLCanvasElement>('#picture-large')
 
 const SOUND_KEY = 'puzzle-maker:sound';
 const ROTATE_KEY = 'puzzle-maker:rotate';
+const EDGES_FIRST_KEY = 'puzzle-maker:edges-first';
 const HELP_SEEN_KEY = 'puzzle-maker:help-seen';
 const PREVIEW_KEY = 'puzzle-maker:preview';
 const TABLE_COLOR_KEY = 'puzzle-maker:table-color';
@@ -121,6 +123,13 @@ function renderDifficulty(): void {
 renderDifficulty();
 
 const game = new PuzzleGame(canvas);
+
+edgesFirstToggle.checked = readPref(EDGES_FIRST_KEY) === 'on';
+game.edgesFirst = edgesFirstToggle.checked;
+edgesFirstToggle.addEventListener('change', () => {
+  game.edgesFirst = edgesFirstToggle.checked;
+  writePref(EDGES_FIRST_KEY, edgesFirstToggle.checked ? 'on' : 'off');
+});
 
 for (const c of TABLE_COLORS) tableColorSelect.add(new Option(c.label, c.id));
 function applyTableColor(id: string | null): void {

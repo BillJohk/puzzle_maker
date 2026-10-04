@@ -151,6 +151,9 @@ export class PuzzleGame {
   private ghost = false;
   private lightTable = false;
 
+  /** Only pieces on the picture's border lock onto the board by themselves; inner pieces must join a neighbor. */
+  edgesFirst = false;
+
   /** Called once when the puzzle is complete and the finished picture is shown. */
   onSolved: (() => void) | null = null;
   /** Called after each move or turn, so the UI can refresh its counters and save. */
@@ -523,13 +526,14 @@ export class PuzzleGame {
   }
 
   private snapGeometry(): SnapGeometry {
-    const { cellW, cellH } = this.layout!;
+    const { rows, cols, cellW, cellH } = this.layout!;
     return {
       cellW,
       cellH,
       boardX: this.board.x,
       boardY: this.board.y,
       tolerance: Math.max(8, SNAP_TOLERANCE * Math.min(cellW, cellH)),
+      edgesFirst: this.edgesFirst ? { rows, cols } : undefined,
     };
   }
 
