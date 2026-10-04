@@ -13,8 +13,7 @@ import { isLightColor, TABLE_COLORS, tableColor } from './theme';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const fileInput = document.querySelector<HTMLInputElement>('#image-input')!;
-const countSelect = document.querySelector<HTMLSelectElement>('#piece-count')!;
-const difficultySelect = document.querySelector<HTMLSelectElement>('#difficulty')!;
+const sizeSelect = document.querySelector<HTMLSelectElement>('#size')!;
 const customInput = document.querySelector<HTMLInputElement>('#custom-count')!;
 const recutButton = document.querySelector<HTMLButtonElement>('#recut')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -100,38 +99,48 @@ if (readPref(HELP_SEEN_KEY) === null) {
 
 const DEFAULT_COUNT = 48;
 const CUSTOM = 'custom';
-for (const n of PIECE_COUNT_OPTIONS) {
-  countSelect.add(new Option(`${n} pieces`, String(n), n === DEFAULT_COUNT, n === DEFAULT_COUNT));
-}
-countSelect.add(new Option('Custom…', CUSTOM));
+/** Menu values for plain piece counts, e.g. "n:48" (preset values are their ids). */
+const COUNT_PREFIX = 'n:';
+
+// One menu: the difficulty presets, then plain piece counts (which keep the rotation setting).
+const presetGroup = document.createElement('optgroup');
+presetGroup.label = 'Difficulty';
 for (const p of PRESETS) {
-  difficultySelect.add(new Option(`${p.label} · ${p.pieces}${p.rotate ? ', rotated' : ''}`, p.id));
+  presetGroup.append(new Option(`${p.label} · ${p.pieces}${p.rotate ? ', rotated' : ''}`, p.id));
 }
-difficultySelect.add(new Option('Custom', CUSTOM));
+const countGroup = document.createElement('optgroup');
+countGroup.label = 'Piece count';
+for (const n of PIECE_COUNT_OPTIONS) countGroup.append(new Option(`${n} pieces`, COUNT_PREFIX + n));
+/** Shows a typed count that isn't one of the listed choices. */
+const typedCountOption = new Option();
+const customChoice = new Option('Custom…', CUSTOM);
+countGroup.append(customChoice);
+sizeSelect.append(presetGroup, countGroup);
 customInput.min = String(MIN_PIECES);
 customInput.max = String(MAX_PIECES);
 
-/** The last custom count entered, used while "Custom…" is selected. */
-let customCount = DEFAULT_COUNT;
+let pieceCount = DEFAULT_COUNT;
 
 function requestedCount(): number {
-  return countSelect.value === CUSTOM ? customCount : Number(countSelect.value);
+  return pieceCount;
 }
 
-/** Shows `n` in the piece-count controls, switching to a custom count if it isn't a listed choice. */
+/** Shows the matching preset if there is one, otherwise the piece count. */
+function renderSize(): void {
+  if (PIECE_COUNT_OPTIONS.some((option) => option === pieceCount)) typedCountOption.remove();
+  else {
+    typedCountOption.text = `${pieceCount} pieces`;
+    typedCountOption.value = COUNT_PREFIX + pieceCount;
+    countGroup.insertBefore(typedCountOption, customChoice);
+  }
+  sizeSelect.value = presetFor(pieceCount, rotateToggle.checked)?.id ?? COUNT_PREFIX + pieceCount;
+}
+
 function setCount(n: number): void {
-  const listed = PIECE_COUNT_OPTIONS.some((option) => option === n);
-  if (!listed) customCount = n;
-  countSelect.value = listed ? String(n) : CUSTOM;
-  customInput.value = String(customCount);
-  customInput.hidden = listed;
+  pieceCount = n;
+  renderSize();
 }
-
-/** Shows which preset (if any) the current count and rotation match. */
-function renderDifficulty(): void {
-  difficultySelect.value = presetFor(requestedCount(), rotateToggle.checked)?.id ?? CUSTOM;
-}
-renderDifficulty();
+renderSize();
 
 const game = new PuzzleGame(canvas);
 
@@ -375,52 +384,48 @@ async function resume(): Promise<void> {
   } catch {
     return;
   }
-  setCount(state.pieceCount);
   rotateToggle.checked = state.rotate;
-  renderDifficulty();
+  setCount(state.pieceCount);
   showPuzzle(game.restore(state));
 }
 void resume();
 
-countSelect.addEventListener('change', () => {
-  if (countSelect.value === CUSTOM) {
+sizeSelect.addEventListener('change', () => {
+  if (sizeSelect.value === CUSTOM) {
     // Wait for a number before re-cutting.
-    customInput.value = String(customCount);
+    customInput.value = String(pieceCount);
     customInput.hidden = false;
     customInput.focus();
     customInput.select();
     return;
   }
   customInput.hidden = true;
-  renderDifficulty();
+  const preset = PRESETS.find((p) => p.id === sizeSelect.value);
+  if (preset) {
+    rotateToggle.checked = preset.rotate;
+    writePref(ROTATE_KEY, preset.rotate ? 'on' : 'off');
+  }
+  setCount(preset?.pieces ?? Number(sizeSelect.value.slice(COUNT_PREFIX.length)));
   cut();
 });
 customInput.addEventListener('change', () => {
   const n = parsePieceCount(customInput.value);
-  customInput.value = String(n ?? customCount);
   if (n === null) return;
-  customCount = n;
-  renderDifficulty();
+  customInput.hidden = true;
+  setCount(n);
   cut();
 });
 customInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') customInput.blur();
+  if (e.key === 'Enter' || e.key === 'Escape') customInput.blur();
 });
-difficultySelect.addEventListener('change', () => {
-  const preset = PRESETS.find((p) => p.id === difficultySelect.value);
-  if (!preset) {
-    // "Custom" just means "set the count and rotation yourself".
-    countSelect.focus();
-    return;
-  }
-  setCount(preset.pieces);
-  rotateToggle.checked = preset.rotate;
-  writePref(ROTATE_KEY, preset.rotate ? 'on' : 'off');
-  cut();
+// Leaving the box (Esc, or without a number) goes back to the current size.
+customInput.addEventListener('blur', () => {
+  customInput.hidden = true;
+  renderSize();
 });
 rotateToggle.addEventListener('change', () => {
   writePref(ROTATE_KEY, rotateToggle.checked ? 'on' : 'off');
-  renderDifficulty();
+  renderSize();
   cut();
 });
 recutButton.addEventListener('click', cut);

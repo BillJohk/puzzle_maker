@@ -13,8 +13,7 @@
         Choose image
         <input id="image-input" type="file" accept="image/*" hidden />
       </label>
-      <select id="difficulty" aria-label="Difficulty"></select>
-      <select id="piece-count" aria-label="Piece count"></select>
+      <select id="size" aria-label="Difficulty or piece count"></select>
       <input id="custom-count" type="number" inputmode="numeric" step="1" aria-label="Custom piece count" hidden />
       <label class="toggle" title="Pieces start turned. Right-click or double-tap a piece, or press R while dragging (Shift+R turns the other way), to rotate it.">
         <input id="rotate" type="checkbox" />
@@ -70,7 +69,7 @@
       <form method="dialog">
         <h2 id="help-title">How to play</h2>
         <ul>
-          <li><strong>Start:</strong> choose an image (or drop one onto the page), then a difficulty or your own piece count ("Custom…" takes any number from 4 to 500). The image stays on your device.</li>
+          <li><strong>Start:</strong> choose an image (or drop one onto the page), then a difficulty or a piece count from the same menu (a piece count keeps your "Rotate pieces" setting; "Custom…" takes any number from 4 to 500). The image stays on your device.</li>
           <li><strong>Sample:</strong> no picture handy? <button id="help-sample" class="link" type="button">Try the sample puzzle</button> (replaces the current puzzle).</li>
           <li><strong>Move:</strong> drag a piece with the mouse, a finger, or a pen.</li>
           <li><strong>Join:</strong> drop a piece close to a matching neighbor and they snap together, then move as a group.</li>
