@@ -1,5 +1,5 @@
 import './style.css';
-import { firstImageFile } from './files';
+import { imageFiles, ShuffleBag } from './files';
 import { formatDuration } from './format';
 import { PuzzleGame } from './game';
 import { MAX_PIECES, MIN_PIECES, parsePieceCount, presetFor, PRESETS } from './puzzle/difficulty';
@@ -13,6 +13,10 @@ import { isLightColor, TABLE_COLORS, tableColor } from './theme';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const fileInput = document.querySelector<HTMLInputElement>('#image-input')!;
+const folderInput = document.querySelector<HTMLInputElement>('#folder-input')!;
+const folderOption = document.querySelector<HTMLElement>('#folder-option')!;
+const nextPictureButton = document.querySelector<HTMLButtonElement>('#next-picture')!;
+const solvedNextButton = document.querySelector<HTMLButtonElement>('#solved-next')!;
 const sizeSelect = document.querySelector<HTMLSelectElement>('#size')!;
 const customInput = document.querySelector<HTMLInputElement>('#custom-count')!;
 const recutButton = document.querySelector<HTMLButtonElement>('#recut')!;
@@ -279,6 +283,11 @@ game.onSolved = () => {
   solvedDetail.textContent = `${sizeLabel} in ${formatDuration(game.elapsedMs)}, ${movesLabel(game.moves)}`;
   solvedBanner.hidden = false;
   renderPreview();
+  if (currentPicture) {
+    pictures.remove(currentPicture);
+    currentPicture = null;
+    renderNextPicture();
+  }
 };
 setInterval(updateStatus, 1000);
 
@@ -308,20 +317,64 @@ function useImage(bitmap: ImageBitmap): void {
   renderZoom();
 }
 
-async function openFile(file: File): Promise<void> {
+async function openFile(file: File): Promise<boolean> {
   try {
     useImage(await decode(file));
   } catch {
     status.textContent = `Couldn't read "${file.name}" as an image.`;
-    return;
+    return false;
   }
   await saveImage(file);
   cut();
+  return true;
 }
+
+// The pictures from the last pick (several files, a folder, or a drop). A
+// picture leaves the pool once it is solved (or fails to decode), so it isn't
+// dealt again and its File can be let go. Only the one being played is saved,
+// so the pool doesn't survive a reload.
+let pictures = new ShuffleBag<File>([]);
+let currentPicture: File | null = null;
+
+/** Shows "Next picture" while the pool holds a picture other than the current one. */
+function renderNextPicture(): void {
+  const others = pictures.size - (currentPicture && pictures.has(currentPicture) ? 1 : 0);
+  for (const button of [nextPictureButton, solvedNextButton]) button.hidden = others === 0;
+  nextPictureButton.title =
+    others === 1 ? 'Start a puzzle from the last unsolved picture' : `Start a puzzle from one of ${others} unsolved pictures`;
+}
+
+/** Opens a random picture from the pool, dropping any that won't decode. */
+async function openNextPicture(): Promise<void> {
+  let file: File | undefined;
+  while ((file = pictures.next())) {
+    if (await openFile(file)) {
+      currentPicture = file;
+      break;
+    }
+    pictures.remove(file);
+  }
+  renderNextPicture();
+}
+
+function usePictures(files: Iterable<File>, none: string): void {
+  const images = imageFiles(files);
+  if (images.length === 0) {
+    status.textContent = none;
+    return;
+  }
+  pictures = new ShuffleBag(images);
+  currentPicture = null;
+  void openNextPicture();
+}
+for (const button of [nextPictureButton, solvedNextButton]) button.addEventListener('click', () => void openNextPicture());
 
 // A built-in picture for trying the game without one of your own.
 const SAMPLE_URL = `${import.meta.env.BASE_URL}sample.jpg`;
 async function openSample(): Promise<void> {
+  // The sample isn't in the pool; solving it shouldn't take anything out.
+  currentPicture = null;
+  renderNextPicture();
   try {
     const res = await fetch(SAMPLE_URL);
     if (!res.ok) throw new Error(res.statusText);
@@ -336,12 +389,22 @@ helpSampleButton.addEventListener('click', () => {
   void openSample();
 });
 
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files?.[0];
-  // Allow picking the same file again to start over.
-  fileInput.value = '';
-  if (file) void openFile(file);
-});
+for (const input of [fileInput, folderInput]) {
+  input.addEventListener('change', () => {
+    const files = [...(input.files ?? [])];
+    // Allow picking the same files again to start over.
+    input.value = '';
+    if (files.length === 0) return;
+    optionsPanel.hidePopover();
+    usePictures(files, input === folderInput ? 'That folder has no images in it.' : "That isn't an image file.");
+  });
+}
+
+// Phones ignore webkitdirectory (or open a file manager instead of the photo
+// gallery), so the folder picker is only offered with a mouse or trackpad.
+if ('webkitdirectory' in folderInput && matchMedia('(pointer: fine)').matches) {
+  folderOption.hidden = false;
+}
 
 // Dropping an image anywhere on the page opens it. Without preventDefault on
 // both events the browser would navigate to the file instead.
@@ -367,9 +430,7 @@ window.addEventListener('drop', (e) => {
   e.preventDefault();
   dragDepth = 0;
   document.body.classList.remove('drop-target');
-  const file = firstImageFile(e.dataTransfer!.files);
-  if (file) void openFile(file);
-  else status.textContent = 'Drop an image file to make a puzzle from it.';
+  usePictures(e.dataTransfer!.files, 'Drop an image file to make a puzzle from it.');
 });
 
 /** Picks up where the player left off, if a puzzle was saved in this browser. */
